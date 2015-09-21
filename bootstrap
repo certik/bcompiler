@@ -1,0 +1,35 @@
+#!/bin/bash
+
+set -e
+
+# HEX1
+./hex1 < hex1.he | diff - hex1
+
+# HEX2
+./hex1 < hex2a.he > hex2a && chmod +x hex2a
+./hex2a < hex2a.he | diff - hex2a
+./hex2a < hex2b.he | diff - hex2a
+./hex2a < hex2c.he > hex2c && chmod +x hex2c
+./hex2c < hex2c.he | diff - hex2c
+
+# HEX3
+./hex2c < hex3a.he > hex3a && chmod +x hex3a
+./hex3a < hex3b.he > hex3b && chmod +x hex3b
+./hex3b < hex3b.he | diff - hex3b
+
+# HEX4
+./hex3b < hex4a.he > hex4a && chmod +x hex4a
+./hex4a < hex4b.he > hex4b && chmod +x hex4b
+./hex4b < hex4b.he | diff - hex4b
+
+# HEX5
+./hex4b < hex5a.he > hex5a && chmod +x hex5a
+./hex5a < hex5b.he > hex5b && chmod +x hex5b
+./hex5b < hex5b.he | diff - hex5b
+./hex5b < hex5c.he > hex5c && chmod +x hex5c
+
+# BCC
+cat header.bc bcc.bc | ./hex5c > bcc && chmod +x bcc
+cat header.bc bcc.bc | ./bcc > bcc2 && chmod +x bcc2
+mv bcc2 bcc
+cat header.bc bcc.bc | ./bcc | diff - bcc
