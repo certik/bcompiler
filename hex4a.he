@@ -1,0 +1,729 @@
+#
+# HEX4 for Linux-i386-ELF
+#
+# Copyright (C) 2001, Edmund GRIMLEY EVANS <edmundo@rano.org>
+#
+
+###
+### ELF headers
+###
+
+# Elf32_Ehdr
+  7f 45 4c 46 01 01 01	# e_ident
+  00 00 00 00 00 00 00 00 00
+  02 00			# e_type
+  03 00			# e_machine
+  01 00 00 00		# e_version
+  00 88 04 08	#!	# e_entry = 0x08048000 + _start
+  34 00 00 00		# e_phoff = len(ehdr)
+  00 00 00 00		# e_shoff
+  00 00 00 00		# e_flags
+  34 00			# e_ehsize = len(ehdr)
+  20 00			# e_phentsize = len(phdr)
+  01 00			# e_phnum
+  00 00			# e_shentsize
+  00 00			# e_shnum
+  00 00			# e_shstrndx
+
+# Elf32_Phdr
+  01 00 00 00		# p_type
+  00 00 00 00		# p_offset
+  00 80 04 08		# p_vaddr = 0x08048000
+  00 80 04 08		# p_paddr = 0x08048000
+  00 09 00 00	#!	# p_filesz = len(ehdr) + len(phdr) + len(prog)
+  00 09 00 00	#!	# p_memsz = len(ehdr) + len(phdr) + len(prog)
+  07 00 00 00		# p_flags
+  00 10 00 00		# p_align
+
+######################################################################
+
+:drop
+	5b			# pop	%ebx
+	58			# pop	%eax
+	ff e3			# jmp	*%ebx
+
+:swap
+	5b			# pop	%ebx
+	58			# pop	%eax
+	59			# pop	%ecx
+	50			# push	%eax
+	51			# push	%ecx
+	ff e3			# jmp	*%ebx
+
+:dup,
+	5b			# pop	%ebx
+	58			# pop	%eax
+	50			# push	%eax
+	50			# push	%eax
+	ff e3			# jmp	*%ebx
+
+:rot,
+	58			# pop	%eax
+	5b			# pop	%ebx
+	59			# pop	%ecx
+	5a			# pop	%edx
+	51			# push	%ecx
+	53			# push	%ebx
+	52			# push	%edx
+	50			# push	%eax
+	c3
+
+:pick
+	8b 44 24 04		# mov	4(%esp),%eax
+	01 c0			# add	%eax,%eax
+	01 c0			# add	%eax,%eax
+	8d 5c 24 08		# lea	8(%esp),%ebx
+	01 d8			# add	%ebx,%eax
+	8b 00			# mov	(%eax),%eax
+	89 44 24 04		# mov	%eax,4(%esp)
+	c3			# ret
+
+# Arithmetic
+
+:-,,,
+	5b			# pop	%ebx
+	58			# pop	%eax
+	29 04 24		# sub	%eax,(%esp)
+	ff e3			# jmp	*%ebx
+
+:+,,,
+	5b			# pop	%ebx
+	58			# pop	%eax
+	01 04 24		# add	%eax,(%esp)
+	ff e3			# jmp	*%ebx
+
+:*,,,
+	5b			# pop	%ebx
+	58			# pop	%eax
+	0f af 04 24		# imul	(%esp),%eax
+	89 04 24		# mov	%eax,(%esp)
+	ff e3			# jmp	*%ebx
+
+:<<,,
+	5b			# pop	%ebx
+	59			# pop	%ecx
+	58			# pop	%eax
+	d3 e0			# shl	%cl,%eax
+	50			# push	%eax
+	ff e3			# jmp	*%ebx
+
+:>>,,
+	5b			# pop	%ebx
+	59			# pop	%ecx
+	58			# pop	%eax
+	d3 f8			# sar	%cl,%eax
+	50			# push	%eax
+	ff e3			# jmp	*%ebx
+
+# Comparisons
+
+:<,,,
+	5b			# pop	%ebx
+	58			# pop	%eax
+	59			# pop	%ecx
+	39 c1			# cmp	%eax,%ecx
+	0f 9c c0		# setl	%al
+	25 ff 00 00 00		# and	$0xff,%eax
+	50			# push	%eax
+	ff e3			# jmp	*%ebx
+
+:<=,,
+	5b			# pop	%ebx
+	58			# pop	%eax
+	59			# pop	%ecx
+	39 c1			# cmp	%eax,%ecx
+	0f 9e c0		# setle	%al
+	25 ff 00 00 00		# and	$0xff,%eax
+	50			# push	%eax
+	ff e3			# jmp	*%ebx
+
+:==,,
+	5b			# pop	%ebx
+	58			# pop	%eax
+	59			# pop	%ecx
+	39 c1			# cmp	%eax,%ecx
+	0f 94 c0		# sete	%al
+	25 ff 00 00 00		# and	$0xff,%eax
+	50			# push	%eax
+	ff e3			# jmp	*%ebx
+
+:!=,,
+	5b			# pop	%ebx
+	58			# pop	%eax
+	59			# pop	%ecx
+	39 c1			# cmp	%eax,%ecx
+	0f 95 c0		# setne	%al
+	25 ff 00 00 00		# and	$0xff,%eax
+	50			# push	%eax
+	ff e3			# jmp	*%ebx
+
+# Memory access
+
+:@,,,
+	5b			# pop	%ebx
+	58			# pop	%eax
+	8b 00			# mov	(%eax),%eax
+	50			# push	%eax
+	ff e3			# jmp	*%ebx
+
+:=,,,
+	5b			# pop	%ebx
+	58			# pop	%eax
+	59			# pop	%ecx
+	89 08			# mov	%ecx,(%eax)
+	ff e3			# jmp	*%ebx
+
+
+:reab # Convert relative address to absolute
+	5b			# pop	%eax
+	8d 43 fb		# lea	-5(%ebx),%eax
+	01 04 24		# add	%eax,(%esp)
+	ff e3			# jmp	*%ebx
+
+
+
+:arg1
+	5b			# pop	%ebx
+	58			# pop	%eax
+	59			# pop	%ecx
+	51			# push	%ecx
+	50			# push	%eax
+	51			# push	%ecx
+	ff e3			# jmp	*%ebx
+
+
+:0r0, # Jump here to return 0 values from a function with 0 args
+	c3			# ret
+
+:0r1, # Jump here to return 1 value from a function with 0 args
+	58			# pop	%eax
+	5b			# pop	%ebx
+	50			# push	%eax
+	ff e3			# jmp	*%ebx
+
+:1r0, # Jump here to return 0 values from a function with 1 arg
+	5b			# pop	%ebx
+	59			# pop	%ecx
+	ff e3			# jmp	*%ebx
+
+:1r1, # Jump here to return 1 value from a function with 1 arg
+	58			# pop	%eax
+	5b			# pop	%ebx
+	59			# pop	%ecx
+	50			# push	%eax
+	ff e3			# jmp	*%ebx
+
+######################################################################
+
+###
+### System calls
+###
+
+:exit
+	58			# pop	%eax
+	58			# pop	%eax
+	89 c3			# mov	%eax,%ebx
+	31 c0			# xor	%eax,%eax
+	40			# inc	%eax
+	cd 80			# int	$0x80
+
+:brk,
+	5b			# pop	%ebx
+	58			# pop	%eax
+	53			# push	%ebx
+	89 c3			# mov	%eax,%ebx
+	b8 2d 00 00 00		# mov	$0x45,%eax
+	cd 80			# int	$0x80
+	5b			# pop	%ebx
+	50			# push	%eax
+	53			# push	%ebx
+	c3			# ret
+
+:get1
+	6a 00			# push	$0x0
+	31 db			# xor	%ebx,%ebx
+	89 e1			# mov	%esp,%ecx
+	89 da			# mov	%ebx,%edx
+	42			# inc	%edx
+	b8 03 00 00 00		# mov	$0x3,%eax
+	cd 80			# int	$0x80
+	85 c0			# test	%eax,%eax
+	74 02			# je	gete
+	58			# pop	%eax
+	c3			# ret
+:gete
+	31 c0			# xor	%eax,%eax
+	68 00 00 00 00
+	68 00 00 00 00
+	e8 .exit
+
+:getc
+	e8 .get1
+	50			# push	%eax
+	e8 .swap
+	c3			# ret
+
+:putc
+	31 db			# xor	%ebx,%ebx
+	43			# inc	%ebx
+	8d 4c 24 04		# lea	0x4(%esp,1),%ecx
+	89 da			# mov	%ebx,%edx
+	b8 04 00 00 00		# mov	$0x4,%eax
+	cd 80			# int	$0x80
+	5b			# pop	%ebx
+	58			# pop	%eax
+	ff e3			# jmp	*%ebx
+
+:sbrk
+	e8 .arg1
+	68 00 00 00 00
+	e8 .brk,
+	e8 .dup,
+	e8 .rot,
+	e8 .+,,,
+	e8 .dup,
+	e8 .brk,
+	e8 .==,,
+	58 85 c0 0f 85 .1r1,
+	e8 .drop
+	68 ff ff ff ff
+	e9 .1r1,
+
+######################################################################
+
+###
+### Debugging
+###
+
+# A stackless implementation of exit(42), for debugging:
+# 31 c0 40 b3 2a cd 80
+
+:outw
+	e8 .arg1
+	e8 .dup,
+	e8 .putc
+	68 08 00 00 00
+	e8 .>>,,
+	e8 .dup,
+	e8 .putc
+	68 08 00 00 00
+	e8 .>>,,
+	e8 .dup,
+	e8 .putc
+	68 08 00 00 00
+	e8 .>>,,
+	e8 .putc
+	e9 .1r0,
+
+:outs
+	68 de ad be ef
+	e8 .outw
+	e8 .outw
+	e8 .outw
+	e8 .outw
+	e8 .outw
+	e8 .outw
+	ff
+
+######################################################################
+
+###
+### The program itself
+###
+
+:pos,			# pos:
+	00 00 00 00
+:stb0			# symtab:
+	00 00 00 00
+:stbp			# symtabp:
+	00 00 00 00
+			# filelen:
+	00 00 00 00
+
+:genb
+	e8 .arg1
+	e8 .putc
+	68 .pos,
+	e8 .reab
+	e8 .dup,
+	e8 .@,,,
+	68 01 00 00 00
+	e8 .+,,,
+	e8 .swap
+	e8 .=,,,
+	e9 .1r0,
+
+:genw
+	e8 .arg1
+
+	68 .pos,
+	e8 .reab
+	e8 .dup,
+	e8 .@,,,
+	68 04 00 00 00
+	e8 .+,,,
+	e8 .swap
+	e8 .=,,,
+
+	e8 .dup,
+	e8 .putc
+	68 08 00 00 00
+	e8 .>>,,
+	e8 .dup,
+	e8 .putc
+	68 08 00 00 00
+	e8 .>>,,
+	e8 .dup,
+	e8 .putc
+	68 08 00 00 00
+	e8 .>>,,
+	e8 .putc
+	e9 .1r0,
+
+:rsy1
+	e8 .drop
+	e9 .1r1,
+:rsym
+	e8 .arg1
+:rsyl
+	68 ef be ad de
+	e8 .*,,,
+	e8 .getc
+	e8 .dup,
+	68 20 00 00 00
+	e8 .<=,,
+	58 85 c0 0f 85 .rsy1
+	e8 .+,,,
+	e9 .rsyl
+
+:asyo
+	e8 .drop
+	68 .stbp
+	e8 .reab
+	e8 .dup,
+	e8 .@,,,
+	e8 .swap
+	e8 .dup,
+	e8 .@,,,
+	68 08 00 00 00
+	e8 .+,,,
+	68 08 00 00 00
+	e8 .sbrk
+	e8 .drop
+	e8 .swap
+	e8 .=,,,
+
+	e8 .dup,
+	e8 .rot,
+	e8 .swap
+	e8 .=,,,
+	68 04 00 00 00
+	e8 .+,,,
+	68 .pos,
+	e8 .reab
+	e8 .@,,,
+	e8 .swap
+	e8 .=,,,
+	e9 .1r0,
+
+:asye
+	68 02 00 00 00
+	e8 .exit
+
+:asym
+	e8 .arg1
+	68 .stb0
+	e8 .reab
+	e8 .@,,,
+:asyl
+	e8 .dup,
+	68 .stbp
+	e8 .reab
+	e8 .@,,,
+	e8 .==,,
+	58 85 c0 0f 85 .asyo
+	e8 .dup,
+	e8 .@,,,
+	68 02 00 00 00
+	e8 .pick
+	e8 .==,,
+	58 85 c0 0f 85 .asye
+	68 08 00 00 00
+	e8 .+,,,
+	e9 .asyl
+
+:wsyo
+	68 .pos,
+	e8 .reab
+	e8 .dup,
+	e8 .@,,,
+	68 04 00 00 00
+	e8 .+,,,
+	e8 .swap
+	e8 .=,,,
+
+	e8 .swap
+	e8 .drop
+	68 04 00 00 00
+	e8 .+,,,
+	e8 .@,,,
+	68 .pos,
+	e8 .reab
+	e8 .@,,,
+	e8 .-,,,
+
+	e8 .dup,
+	e8 .putc
+	68 08 00 00 00
+	e8 .>>,,
+	e8 .dup,
+	e8 .putc
+	68 08 00 00 00
+	e8 .>>,,
+	e8 .dup,
+	e8 .putc
+	68 08 00 00 00
+	e8 .>>,,
+	e8 .putc
+	e9 .1r0,
+
+:wsye
+	68 03 00 00 00
+	e8 .exit
+
+:wsym
+	e8 .arg1
+	68 .stb0
+	e8 .reab
+	e8 .@,,,
+:wsyl
+	e8 .dup,
+	68 .stbp
+	e8 .reab
+	e8 .@,,,
+	e8 .==,,
+	58 85 c0 0f 85 .wsye
+	e8 .dup,
+	e8 .@,,,
+	68 02 00 00 00
+	e8 .pick
+	e8 .==,,
+	58 85 c0 0f 85 .wsyo
+	68 08 00 00 00
+	e8 .+,,,
+	e9 .wsyl
+
+
+:hex1
+	68 30 00 00 00
+	e8 .-,,,
+	e9 .1r1,
+
+:hex2
+	68 57 00 00 00
+	e8 .-,,,
+	e9 .1r1,
+
+:err1
+	68 11 00 00 00
+	e8 .exit
+
+:conh
+	e8 .arg1
+	e8 .dup,
+	68 30 00 00 00
+	e8 .<,,,
+	58 85 c0 0f 85 .err1
+	e8 .dup,
+	68 3a 00 00 00
+	e8 .<,,,
+	58 85 c0 0f 85 .hex1
+	e8 .dup,
+	68 61 00 00 00
+	e8 .<,,,
+	58 85 c0 0f 85 .err1
+	e8 .dup,
+	68 67 00 00 00
+	e8 .<,,,
+	58 85 c0 0f 85 .hex2
+	e9 .err1
+
+:tokh
+	e8 .drop
+	e8 .getc
+	e8 .conh
+	68 04 00 00 00
+	e8 .<<,,
+
+	e8 .getc
+	e8 .conh
+	e8 .+,,,
+	e8 .genb
+	e9 .0r0,
+
+:gets
+	e8 .drop
+	e9 .0r0,
+
+:comm
+	e8 .drop
+:coml
+	e8 .getc
+	68 0a 00 00 00
+	e8 .!=,,
+	58 85 c0 0f 85 .coml
+	e9 .0r0,
+
+:isd0
+	e8 .drop
+	68 00 00 00 00
+	e9 .1r1,
+
+:isd1
+	68 01 00 00 00
+	e9 .1r1,
+
+:isdi
+	e8 .arg1
+	e8 .dup,
+	68 30 00 00 00
+	e8 .<,,,
+	58 85 c0 0f 85 .isd0
+	68 3a 00 00 00
+	e8 .<,,,
+	58 85 c0 0f 85 .isd1
+	68 00 00 00 00
+	e9 .1r1,
+
+:tkne
+	e8 .drop
+	68 68 00 00 00
+	e8 .genb
+	e8 .genw
+	e9 .0r0,
+
+:tokn
+	68 00 00 00 00
+	e8 .swap
+:tknl
+	e8 .dup,
+	68 20 00 00 00
+	e8 .<=,,
+	58 85 c0 0f 85 .tkne
+	68 30 00 00 00
+	e8 .-,,,
+	e8 .swap
+	68 0a 00 00 00
+	e8 .*,,,
+	e8 .+,,,
+	e8 .getc
+	e9 .tknl
+
+:tokd
+	e8 .drop
+	e8 .getc
+	e8 .rsym
+	e8 .asym
+	e9 .0r0,
+
+:toku
+	68 e8 00 00 00
+	e8 .genb
+	e8 .rsym
+	e8 .wsym
+	e9 .0r0,
+
+:toka
+	68 68 00 00 00
+	e8 .genb
+	e8 .drop
+	e8 .getc
+	e8 .rsym
+	e8 .wsym
+	e9 .0r0,
+
+:gett
+	e8 .getc
+
+	e8 .dup,
+	68 20 00 00 00
+	e8 .<=,,
+	58 85 c0 0f 85 .gets	# white space
+
+	e8 .dup,
+	68 23 00 00 00
+	e8 .==,,
+	58 85 c0 0f 85 .comm	# '#'
+
+	e8 .dup,
+	e8 .isdi
+	58 85 c0 0f 85 .tokn	# number
+
+	e8 .dup,
+	68 3a 00 00 00
+	e8 .==,,
+	58 85 c0 0f 85 .tokd	# ':'
+
+	e8 .dup,
+	68 27 00 00 00
+	e8 .==,,
+	58 85 c0 0f 85 .tokh	# "'"
+
+	e8 .dup,
+	68 26 00 00 00
+	e8 .==,,
+	58 85 c0 0f 85 .toka	# '&'
+
+	e9 .toku
+
+:star
+	68 00 00 00 00
+	e8 .sbrk
+	e8 .dup,
+	68 .stb0
+	e8 .reab
+	e8 .=,,,
+	68 .stbp
+	e8 .reab
+	e8 .=,,,
+
+:loo1
+	e8 .gett
+	e9 .loo1
+
+
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+
+	e9 .star
+
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90

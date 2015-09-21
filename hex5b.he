@@ -1,0 +1,1481 @@
+#
+# HEX5 for Linux-i386-ELF
+#
+# Copyright (C) 2001, Edmund GRIMLEY EVANS <edmundo@rano.org>
+#
+
+###
+### ELF headers
+###
+
+# Elf32_Ehdr
+  '7f '45 '4c '46 '01 '01 '01	# e_ident
+  '00 '00 '00 '00 '00 '00 '00 '00 '00
+  '02 '00			# e_type
+  '03 '00			# e_machine
+  '01 '00 '00 '00		# e_version
+  '54 '80 '04 '08		# e_entry = 0x08048000 + _start
+  '34 '00 '00 '00		# e_phoff = len(ehdr)
+  '00 '00 '00 '00		# e_shoff
+  '00 '00 '00 '00		# e_flags
+  '34 '00			# e_ehsize = len(ehdr)
+  '20 '00			# e_phentsize = len(phdr)
+  '01 '00			# e_phnum
+  '00 '00			# e_shentsize
+  '00 '00			# e_shnum
+  '00 '00			# e_shstrndx
+
+# Elf32_Phdr
+  '01 '00 '00 '00		# p_type
+  '00 '00 '00 '00		# p_offset
+  '00 '80 '04 '08		# p_vaddr = 0x08048000
+  '00 '80 '04 '08		# p_paddr = 0x08048000
+  '00 '40 '00 '00	#FIXME	# p_filesz = len(ehdr) + len(phdr) + len(prog)
+  '00 '40 '00 '00	#FIXME	# p_memsz = len(ehdr) + len(phdr) + len(prog)
+  '07 '00 '00 '00		# p_flags
+  '00 '10 '00 '00		# p_align
+
+######################################################################
+
+# Enter here:
+
+# Look for a bunch of NOPs and jump there.
+
+	'b8 '00 '80 '04 '08		# mov	$0x08048000,%eax
+				# nop_loop:
+	'40				# inc	%eax
+	'81 '38 '90 '90 '90 '90		# cmpl	$0x90909090,(%eax)
+	'75 'f7				# jne	nop_loop
+	'81 '78 '04 '90 '90 '90 '90	# cmpl	$0x90909090,(%eax)
+	'75 'ee				# jne	nop_loop
+	'81 '78 '08 '90 '90 '90 '90	# cmpl	$0x90909090,(%eax)
+	'75 'e5				# jne	nop_loop
+	'ff 'e0				# jmp	*%eax
+
+######################################################################
+
+###
+### Support for functions: arguments, variables, return values
+###
+
+_def vars
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'f7 'db			# neg	%ebx
+	'8d '24 '9c		# lea	(%esp,%ebx,4),%esp
+	'50			# push	%eax
+	'c3			# ret
+
+_def arg
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'8b '4c '9d '04		# mov	4(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+_def arg=
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'89 '4c '9d '04		# mov	%ecx,4(%ebp,%ebx,4)
+	'50			# push	%eax
+	'c3			# ret
+
+_def arg&
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'8d '4c '9d '04		# lea	4(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+_def varn
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'f7 'db			# neg	%ebx
+	'8b '4c '9d '00		# mov	0(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+_def var=
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'f7 'db			# neg	%ebx
+	'89 '4c '9d '00		# mov	%ecx,0(%ebp,%ebx,4)
+	'50			# push	%eax
+	'c3			# ret
+
+_def var&
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'f7 'db			# neg	%ebx
+	'8d '4c '9d '00		# lea	0(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+_def xreturn0
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'c9			# leave
+	'58			# pop	%eax
+	'8d '24 '9c		# lea	(%esp,%ebx,4),%esp
+	'50			# push	%eax
+	'c3			# ret
+
+_def xreturn1
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'c9			# leave
+	'58			# pop	%eax
+	'8d '24 '9c		# lea	(%esp,%ebx,4),%esp
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+###
+### Stack manipulation
+###
+
+_def drop
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def swap
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'50			# push	%eax
+	'51			# push	%ecx
+	'ff 'e3			# jmp	*%ebx
+
+_def dup
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'50			# push	%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def twodup
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'51			# push	%ecx
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def rot
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'5a			# pop	%edx
+	'51			# push	%ecx
+	'53			# push	%ebx
+	'52			# push	%edx
+	'50			# push	%eax
+	'c3
+
+_def pick
+	'8b '44 '24 '04		# mov	4(%esp),%eax
+	'01 'c0			# add	%eax,%eax
+	'01 'c0			# add	%eax,%eax
+	'8d '5c '24 '08		# lea	8(%esp),%ebx
+	'01 'd8			# add	%ebx,%eax
+	'8b '00			# mov	(%eax),%eax
+	'89 '44 '24 '04		# mov	%eax,4(%esp)
+	'c3			# ret
+
+###
+### Arithmetic
+###
+
+_def -
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'29 '04 '24		# sub	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+_def +
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'01 '04 '24		# add	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+_def bitand
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'21 '04 '24		# and	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+_def *
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'0f 'af '04 '24		# imul	(%esp),%eax
+	'89 '04 '24		# mov	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+_def <<
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'd3 'e0			# shl	%cl,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def >>
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'd3 'f8			# sar	%cl,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+# Comparisons
+
+_def <
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '9c 'c0		# setl	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def <=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '9e 'c0		# setle	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def ==
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '94 'c0		# sete	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def !=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '95 'c0		# setne	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+###
+### Memory access
+###
+
+_def @
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'8b '00			# mov	(%eax),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def =
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'89 '08			# mov	%ecx,(%eax)
+	'53			# push	%ebx
+	'c3			# ret
+
+_def c[]
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'0f 'be '04 '10		# movsbl (%eax,%edx,1),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def c[]=
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'88 '0c '10		# mov	%cl,(%eax,%edx,1)
+	'53			# push	%ebx
+	'c3			# ret
+
+_def c[]&
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'8d '04 '10		# lea	(%eax,%edx,1),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+###
+### Flow of control
+###
+
+_def jump
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'01 'c3			# add	%eax,%ebx
+	'83 'eb '05		# sub	$5,%ebx
+	'53			# push	%ebx
+	'c3			# ret
+
+_def branch
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'85 'c9			# test	%ecx,%ecx
+	'75 '02			# jne	+2
+	'50			# push	%eax
+	'c3			# ret
+	'01 'c3			# add	%eax,%ebx
+	'83 'eb '05		# sub	$5,%ebx
+	'53			# push	%ebx
+	'c3			# ret
+
+_def call
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+######################################################################
+
+###
+### System calls
+###
+
+_def exit
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'31 'c0			# xor	%eax,%eax
+	'40			# inc	%eax
+	'cd '80			# int	$0x80
+
+_def _brk
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'b8 '2d '00 '00 '00	# mov	$0x45,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def getchar
+	'6a '00			# push	$0x0
+	'31 'db			# xor	%ebx,%ebx
+	'89 'e1			# mov	%esp,%ecx
+	'31 'd2			# xor	%edx,%edx
+	'42			# inc	%edx
+	'b8 '03 '00 '00 '00	# mov	$0x3,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'85 'c0			# test	%eax,%eax
+	'75 '01			# jne	+1
+	'4b			# dec	%ebx
+	'58			# pop	%eax
+	'53			# push	%ebx
+	'50			# push	%eax
+	'c3			# ret
+
+_def putchar
+	'31 'db			# xor	%ebx,%ebx
+	'43			# inc	%ebx
+	'8d '4c '24 '04		# lea	0x4(%esp,1),%ecx
+	'89 'da			# mov	%ebx,%edx
+	'b8 '04 '00 '00 '00	# mov	$0x4,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+def sbrk
+{
+	1 arg 0 _brk dup
+	rot + dup _brk == if 1 xreturn1 fi
+	drop 0 1 - 1 xreturn1
+}
+
+######################################################################
+
+###
+### Debugging
+###
+
+# A stackless implementation of exit(42), for debugging:
+# '31 'c0 '40 'b3 '2a 'cd '80
+
+def outw
+{
+	1 arg
+	dup putchar 8 >>
+	dup putchar 8 >>
+	dup putchar 8 >>
+	putchar
+	1 xreturn0
+}
+
+def outs
+{
+	3735928559 # 0xdeadbeef
+	outw outw outw outw
+	outw outw outw outw
+	outw outw outw outw
+	0 exit
+}
+
+######################################################################
+
+###
+### A bogus implementation of malloc, realloc, free
+###
+
+def wsize
+{
+	4 0 xreturn1
+}
+
+def malloc
+{
+	1 arg wsize + sbrk
+	dup 1 arg swap =
+	wsize + 1 xreturn1
+}
+
+def realloc
+{
+	2 vars
+	2 arg 0 == if 1 arg malloc 2 xreturn1 fi
+	2 arg wsize - @
+	1 var=
+	1 arg 1 varn <= if 2 arg 2 xreturn1 fi
+	1 arg malloc 2 var=
+	{
+		1 varn 0 == if 2 varn 2 xreturn1 fi
+		1 varn 1 - 1 var=
+		2 arg 1 varn c[]
+		2 varn 1 varn c[]=
+		continue
+	}
+}
+
+def free
+{
+	1 xreturn0
+}
+
+######################################################################
+
+###
+### The program itself
+###
+
+def not
+{
+	1 arg if
+		0 1 xreturn1
+	else
+		1 1 xreturn1
+	fi
+}
+
+def cmp
+{
+	0 1 - 2 arg 1 arg < if 2 xreturn1 fi
+	0 2 arg 1 arg == if 2 xreturn1 fi
+	1 2 xreturn1
+}
+
+def strcmp
+{
+	1 vars
+	0 1 var=
+	{
+		2 arg 1 varn c[] 1 arg 1 varn c[] cmp
+		dup if 2 xreturn1 fi
+		2 arg 1 varn c[] not if 2 xreturn1 fi
+		drop
+		1 varn 1 + 1 var=
+		continue
+	}
+}
+
+def strlen
+{
+	1 vars
+	0 1 var=
+	{
+		1 arg 1 varn c[] not if 1 varn 1 xreturn1 fi
+		1 varn 1 + 1 var=
+		continue
+	}
+}
+
+def strdup
+{
+	2 vars
+	0 1 var=
+	1 arg strlen 1 + malloc 2 var=
+	{
+		1 arg 1 varn c[]
+		dup not if 2 varn 1 xreturn1 fi
+		2 varn 1 varn c[]=
+		1 varn 1 + 1 var=
+		continue
+	}
+}
+
+def prints
+{
+	1 arg
+	0
+	{
+		twodup c[] dup not if 1 xreturn0 fi
+		putchar
+		1 +
+		continue
+	}
+}
+
+###
+### Binary image
+###
+
+_def _var_address
+	'58			# pop	%eax
+	'83 'c0 '02		# add	$0x2,%eax
+	'c9			# leave
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+def binary
+	{ _var_address }
+	'00 '00 '00 '00
+def binary_size
+	{ _var_address }
+	'00 '00 '00 '00
+def pc
+	{ _var_address }
+	'00 '00 '00 '00
+
+def emit
+{
+	2 arg binary_size @ < not if
+		2 arg 1 + 1 <<
+		dup binary_size =
+		binary @ swap realloc binary =
+	fi
+	1 arg binary @ 2 arg c[]=
+	2 xreturn0
+}
+
+def dump
+{
+	3 vars
+	binary @ 1 var=
+	pc @ 2 var=
+	0 3 var=
+	{
+		3 varn 2 varn == if 0 xreturn0 fi
+		1 varn 3 varn c[] putchar
+		3 varn 1 + 3 var=
+		continue
+	}
+}
+
+def store_int
+{
+	1 arg
+	binary @ 2 arg c[]&
+	=
+	2 xreturn0
+}
+
+def fetch_int
+{
+	binary @ 1 arg c[]&
+	@
+	1 xreturn1
+}
+
+###
+### Lexical analysis
+###
+
+def token_eof
+	{ _var_address }
+	'00
+def token_word
+	{ _var_address }
+	'61 '00
+def token_def
+	{ _var_address }
+	'64 '65 '66 '00
+def token__def
+	{ _var_address }
+	'5f '64 '65 '66 '00
+def token_ob
+	{ _var_address }
+	'7b '00
+def token_cb
+	{ _var_address }
+	'7d '00
+def token_var
+	{ _var_address }
+	'76 '61 '72 '00
+def token_if
+	{ _var_address }
+	'69 '66 '00
+def token_else
+	{ _var_address }
+	'65 '6c '73 '65 '00
+def token_fi
+	{ _var_address }
+	'66 '69 '00
+def token_break
+	{ _var_address }
+	'62 '72 '65 '61 '6b '00
+def token_continue
+	{ _var_address }
+	'63 '6f '6e '74 '69 '6e '75 '65 '00
+def token_until
+	{ _var_address }
+	'75 '6e '74 '69 '6c '00
+def token_while
+	{ _var_address }
+	'77 '68 '69 '6c '65 '00
+
+def is_symbol
+{
+	1 arg token_eof strcmp not if 0 1 xreturn1 fi
+	1 arg token_def strcmp not if 0 1 xreturn1 fi
+	1 arg token_ob strcmp not if 0 1 xreturn1 fi
+	1 arg token_cb strcmp not if 0 1 xreturn1 fi
+	1 arg token_var strcmp not if 0 1 xreturn1 fi
+	1 arg token_if strcmp not if 0 1 xreturn1 fi
+	1 arg token_else strcmp not if 0 1 xreturn1 fi
+	1 arg token_fi strcmp not if 0 1 xreturn1 fi
+	1 arg token_break strcmp not if 0 1 xreturn1 fi
+	1 arg token_continue strcmp not if 0 1 xreturn1 fi
+	1 arg token_until strcmp not if 0 1 xreturn1 fi
+	1 arg token_while strcmp not if 0 1 xreturn1 fi
+	1 1 xreturn1
+}
+
+def next_token
+	{ _var_address }
+	# A silly fixed-length buffer
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+
+def get_next_token
+{
+	1 vars
+	{
+		getchar 1 var=
+		1 varn 0 1 - == if
+			0 next_token =
+			0 xreturn0
+		fi
+		1 varn 32 <= if
+			continue
+		fi
+		1 varn 35 != if
+			next_token swap
+			{
+				swap dup rot swap =
+				1 +
+				getchar
+				dup 32 <= not if continue fi
+				drop
+				0 swap =
+				0 xreturn0
+			}
+		fi
+		{
+			getchar 10 != if continue fi
+		}
+		continue
+	}
+}
+
+def eof
+{
+	next_token @ 0 == 0 xreturn1
+}
+
+def token
+{
+	next_token 1 arg strcmp if 0 1 xreturn1 fi
+	get_next_token
+	1 1 xreturn1
+}
+
+def syntax_error
+{
+	19 exit
+}
+
+def require
+{
+	1 arg not if syntax_error fi
+	1 xreturn0
+}
+
+###
+### Symbol tables
+###
+
+def globals
+	{ _var_address }
+	'00 '00 '00 '00
+
+def locals
+	{ _var_address }
+	'00 '00 '00 '00
+
+def local_args_num
+	{ _var_address }
+	'00 '00 '00 '00
+
+def symbol.sizeof
+{
+	wsize 4 * 0 xreturn1
+}
+
+def symbol.name&
+{
+	1 arg 1 xreturn1
+}
+
+def symbol.type&
+{
+	1 arg wsize + 1 xreturn1
+}
+
+def symbol.value&
+{
+	1 arg wsize 2 * + 1 xreturn1
+}
+
+def symbol.next&
+{
+	1 arg wsize 3 * + 1 xreturn1
+}
+
+def symbol.type
+{
+	1 arg symbol.type& @ 1 xreturn1
+}
+
+def symbol.type=
+{
+	2 arg 1 arg symbol.type& = 2 xreturn0
+}
+
+def symbol.value
+{
+	1 arg symbol.value& @ 1 xreturn1
+}
+
+def symbol.value=
+{
+	2 arg 1 arg symbol.value& = 2 xreturn0
+}
+
+def table s symbol_found
+{
+	1 vars
+	2 arg 1 var=
+	{
+		1 varn @ not if
+			0 2 xreturn1
+		fi
+		1 varn @ symbol.name& @ 1 arg strcmp not if
+			1 varn @ 2 xreturn1
+		fi
+		1 varn @ symbol.next& 1 var=
+		continue
+	}
+}
+
+def table s symbol_find
+{
+	1 vars
+	2 arg 1 var=
+	{
+		1 varn @ not if
+			symbol.sizeof malloc
+			dup 1 varn =
+			dup symbol.name& 1 arg strdup swap =
+			dup symbol.type& 0 swap =
+			dup symbol.value& 0 swap =
+			dup symbol.next& 0 swap =
+			2 xreturn1
+		fi
+		1 varn @ symbol.name& @ 1 arg strcmp not if
+			1 varn @ 2 xreturn1
+		fi
+		1 varn @ symbol.next& 1 var=
+		continue
+	}
+}
+
+def table symbol_table_clear
+{
+	# FIXME: leaks
+	0 1 arg =
+}
+
+
+###
+### Code generation
+###
+
+def generate_int
+{
+	2 arg 1 arg 255 bitand emit
+	2 arg 1 + 1 arg 8 >> 255 bitand emit
+	2 arg 2 + 1 arg 16 >> 255 bitand emit
+	2 arg 3 + 1 arg 24 >> 255 bitand emit
+	2 xreturn0
+}
+
+def generate_call
+{
+	2 arg 232 emit # 0xe8 = call N
+	2 arg 1 + 1 arg 2 arg - 5 - generate_int
+	2 arg 5 + 2 xreturn1
+}
+
+def generate_jump
+{
+	2 arg 233 emit # 0xe9 = jmp N
+	2 arg 1 + 1 arg 2 arg - 5 - generate_int
+	2 arg 5 + 2 xreturn1
+}
+
+def generate_branch_false
+{
+	2 arg 88 emit # 0x58 = pop %eax
+	2 arg 1 + 133 emit
+	2 arg 2 + 192 emit # 0x85 0xc0 = test %eax,%eax
+	2 arg 3 + 15 emit
+	2 arg 4 + 132 emit # 0x0f 0x84 = je N
+	2 arg 5 + 1 arg 2 arg - 9 - generate_int
+	2 arg 9 + 2 xreturn1
+}
+
+def generate_branch_true # unused
+{
+	2 arg 88 emit # 0x58 = pop %eax
+	2 arg 1 + 133 emit
+	2 arg 2 + 192 emit # 0x85 0xc0 = test %eax,%eax
+	2 arg 3 + 15 emit
+	2 arg 4 + 133 emit # 0x0f 0x85 = jne N
+	2 arg 5 + 1 arg 2 arg - 9 - generate_int
+	2 arg 9 + 2 xreturn1
+}
+
+def generate_constant
+{
+	2 arg 104 emit # 0x68 = push N
+	2 arg 1 + 1 arg generate_int
+	2 arg 5 + 2 xreturn1
+}
+
+def generate_proc_start
+{
+	1 arg 85 emit # 0x55 = push %ebp
+	1 arg 1 + 137 emit
+	1 arg 2 + 229 emit # 0x89 0xe5 = mov %esp,%ebp
+	1 arg 3 + 1 xreturn1
+}
+
+def generate_proc_end
+{
+	1 arg 201 emit # 0xc9 = leave
+	1 arg 1 + 195 emit # 0xc3 = ret
+	1 arg 2 + 1 xreturn1
+}
+
+def generate_arg_load
+{
+	2 arg 139 emit
+	2 arg 1 + 133 emit # 0x8b 0x85 = mov N(%ebp),%eax
+	2 arg 2 + 2 local_args_num @ + 1 arg - 4 * generate_int
+	2 arg 6 + 80 emit # 0x50 = push %eax
+	2 arg 7 + 2 xreturn1
+}
+
+def generate_stack_frame
+{
+	1 arg not if
+		2 arg 2 xreturn1
+	fi
+	2 arg 129 emit
+	2 arg 1 + 236 emit # 0x81 0xec = sub $N,%esp
+	2 arg 2 + 1 arg 4 * generate_int
+	2 arg 6 + 2 xreturn1
+}
+
+def generate_var_load
+{
+	2 arg 139 emit
+	2 arg 1 + 133 emit # 0x8b 0x85 = mov N(%ebp),%eax
+	2 arg 2 + 0 1 arg - 4 * generate_int
+	2 arg 6 + 80 emit # 0x50 = push %eax
+	2 arg 7 + 2 xreturn1
+}
+
+def generate_var_store
+{
+	2 arg 88 emit # 0x58 = pop %eax
+	2 arg 1 + 137 emit
+	2 arg 2 + 133 emit # 0x89 0x85 = mov %eax,N(%ebp)
+	2 arg 3 + 0 1 arg - 4 * generate_int
+	2 arg 7 + 2 xreturn1
+}
+
+def generate_var_addr
+{
+	2 arg 141 emit
+	2 arg 1 + 133 emit # 0x8d 0x85 = lea N(%ebp),%eax
+	2 arg 2 + 0 1 arg - 4 * generate_int
+	2 arg 6 + 80 emit # 0x50 = push %eax
+	2 arg 7 + 2 xreturn1
+}
+
+def generate_global
+{
+	1 arg 0 generate_int
+	1 arg 4 + 1 xreturn1
+}
+
+def generate_global_load
+{
+	2 arg 232 emit # 0xe8 = call N
+	2 arg 1 + 0 generate_int
+	2 arg 5 + 88 emit # 0x58 = pop %eax
+	2 arg 6 + 139 emit
+	2 arg 7 + 128 emit # 0x8b 0x80 = mov N(%eax),%eax
+	2 arg 8 + 1 arg 2 arg - 5 - generate_int
+	2 arg 12 + 80 emit # 0x50 = push %eax
+	2 arg 13 + 2 xreturn1
+}
+
+def generate_global_store
+{
+	2 arg 232 emit # 0xe8 = call N
+	2 arg 1 + 0 generate_int
+	2 arg 5 + 88 emit # 0x58 = pop %eax
+	2 arg 6 + 91 emit # 0x5b = pop %ebx
+	2 arg 7 + 137 emit
+	2 arg 8 + 152 emit # 0x89 0x98 = mov %ebx,N(%eax)
+	2 arg 9 + 1 arg 2 arg - 5 - generate_int
+	2 arg 13 + 2 xreturn1
+}
+
+def generate_global_addr
+{
+	2 arg 232 emit # 0xe8 = call N
+	2 arg 1 + 0 generate_int
+	2 arg 5 + 88 emit # 0x58 = pop %eax
+	2 arg 6 + 141 emit
+	2 arg 7 + 128 emit # 0x8d 0x80 = lea N(%eax),%eax
+	2 arg 8 + 1 arg 2 arg - 5 - generate_int
+	2 arg 12 + 80 emit # 0x50 = push %eax
+	2 arg 13 + 2 xreturn1
+}
+
+###
+### Parser
+###
+
+def unimplemented
+{
+	77 exit
+}
+
+def label_define
+{
+	1 arg
+	{
+		dup 0 1 - == if 1 xreturn0 fi
+		dup fetch_int
+		swap pc @ generate_jump drop
+		continue
+	}
+}
+
+def compile_number
+{
+	1 vars
+	0 1 var=
+	next_token
+	{
+		dup 0 c[]
+		dup not if
+			pc dup @ 1 varn generate_constant swap =
+			get_next_token
+			1 0 xreturn1
+		fi
+		dup 48 < if 0 0 xreturn1 fi
+		dup 58 < not if 0 0 xreturn1 fi
+		1 varn 10 * + 48 - 1 var=
+		1 +
+		continue
+	}
+}
+
+def s compile_local_symbol
+{
+	2 vars # sym, c
+	locals 1 arg symbol_found 1 var=
+	1 varn if
+		1 varn symbol.type
+		dup 0 == if
+			0 0 xreturn1
+		fi
+		dup 1 == if
+			pc @ 1 varn symbol.value generate_arg_load pc =
+			1 0 xreturn1
+		fi
+		dup 2 == if
+			pc @ 1 varn symbol.value generate_var_load pc =
+			1 0 xreturn1
+		fi
+		97 exit # internal error
+	fi
+
+	1 arg 1 arg strlen 1 - c[] 2 var=
+	2 varn 61 != if # '='
+		2 varn 38 != if # '&'
+			0 1 xreturn1
+		fi
+	fi
+
+	# Chop and restore the last char - what a hack
+	0 1 arg 1 arg strlen 1 - c[]=
+	locals 1 arg symbol_found 1 var=
+	2 varn 1 arg 1 arg strlen c[]=
+
+	1 varn if
+		1 varn symbol.type
+		dup 1 == if
+			101 exit # arg_addr or arg_store
+		fi
+		dup 2 == if
+			2 varn 61 == if
+			    pc @ 1 varn symbol.value generate_var_store pc =
+			else
+			    pc @ 1 varn symbol.value generate_var_addr pc =
+			fi
+			1 0 xreturn1
+		fi
+	fi
+
+	0 1 xreturn1
+}
+
+# FIXME: The following function should be merged with the previous one.
+
+def compile_global_symbol
+{
+	2 vars # sym, n
+	globals 1 arg symbol_found 1 var=
+	1 varn if
+		1 varn symbol.type 1 == if
+			pc @
+			pc @ 0 generate_call pc =
+			dup 1 varn symbol.value store_int
+			1 varn symbol.value=
+			1 1 xreturn1
+		fi
+		1 varn symbol.type 2 == if
+			pc dup @ 1 varn symbol.value generate_call swap =
+			1 1 xreturn1
+		fi
+		1 varn symbol.type 3 == if
+			pc dup @ 1 varn symbol.value generate_global_load swap =
+			1 1 xreturn1
+		fi
+		unimplemented
+	fi
+
+	1 arg 1 arg strlen 1 - c[] 2 var=
+	2 varn 61 != if # '='
+		2 varn 38 != if # '&'
+			globals 1 arg symbol_find 1 var=
+			0 1 - 1 varn symbol.value=
+			1 1 varn symbol.type=
+			1 arg compile_global_symbol
+			1 1 xreturn1
+		fi
+	fi
+
+	# Chop and restore the last char - what a hack
+	0 1 arg 1 arg strlen 1 - c[]=
+	globals 1 arg symbol_found 1 var=
+	2 varn 1 arg 1 arg strlen c[]=
+
+	1 varn if
+		1 varn symbol.type
+		dup 3 == if
+			2 varn 61 == if
+			    pc @ 1 varn symbol.value generate_global_store pc =
+			else
+			    pc @ 1 varn symbol.value generate_global_addr pc =
+			fi
+			1 0 xreturn1
+		fi
+		unimplemented
+	fi
+
+	globals 1 arg symbol_find 1 var=
+	0 1 - 1 varn symbol.value=
+	1 1 varn symbol.type=
+	1 arg compile_global_symbol
+	1 1 xreturn1
+}
+
+def compile_word
+{
+	next_token is_symbol not if
+		0 0 xreturn1
+	fi
+	next_token compile_local_symbol if
+		get_next_token
+		1 0 xreturn1
+	fi
+	next_token compile_global_symbol if
+		get_next_token
+		1 0 xreturn1
+	fi
+	0 0 xreturn1
+}
+
+def compile_loop
+{
+	1 vars # end
+	token_ob token not if 0 0 xreturn1 fi
+	0 1 - 1 var=
+	pc @ 1 var& compile_body
+	1 varn label_define
+	token_cb token require
+	1 0 xreturn1
+}
+
+def compile_if
+{
+	2 vars
+	token_if token not if
+		0 2 xreturn1
+	fi
+	pc @ 1 var=
+	pc dup @ 0 generate_branch_false swap =
+	2 arg 1 arg compile_body require
+	token_fi token if
+		1 varn pc @ generate_branch_false
+		1 2 xreturn1
+	fi
+	token_else token require
+	pc @ 2 var=
+	pc dup @ 0 generate_jump swap =
+	1 varn pc @ generate_branch_false
+	2 arg 1 arg compile_body require
+	token_fi token require
+	2 varn pc @ generate_jump
+	1 2 xreturn1
+}
+
+def compile_break
+{
+	token_break token not if
+		0 1 xreturn1
+	fi
+	pc dup @ swap
+	dup @ 0 generate_jump swap =
+	dup 1 arg @ store_int
+	1 arg =
+	1 1 xreturn1
+}
+
+def compile_continue
+{
+	token_continue token not if
+		0 1 xreturn1
+	fi
+	pc dup @ 1 arg generate_jump swap =
+	1 1 xreturn1
+}
+
+def compile_until
+{
+	token_until token not if
+		0 1 xreturn1
+	fi
+	unimplemented
+}
+
+def compile_while
+{
+	token_while token not if
+		0 1 xreturn1
+	fi
+	unimplemented
+}
+
+def compile_jump
+{
+	1 arg compile_break if 1 2 xreturn1 fi
+	2 arg compile_continue if 1 2 xreturn1 fi
+	1 arg compile_until if 1 2 xreturn1 fi
+	1 arg compile_while if 1 2 xreturn1 fi
+	0 2 xreturn1
+}
+
+def compile_body_1
+{
+	compile_number if 1 2 xreturn1 fi
+	compile_word if 1 2 xreturn1 fi
+	compile_loop if 1 2 xreturn1 fi
+	2 arg 1 arg compile_if if 1 2 xreturn1 fi
+	2 arg 1 arg compile_jump if 1 2 xreturn1 fi
+	0 0 xreturn1
+}
+
+def compile_body
+{
+	{
+		2 arg 1 arg compile_body_1 if continue fi
+		1 2 xreturn1
+	}
+}
+
+def compile_vars
+{
+	2 vars # count, sym
+	0 1 var=
+	{
+		token_var token not if break fi
+		next_token is_symbol require
+		locals next_token symbol_find 2 var=
+		2 varn symbol.type if
+			54 exit # variable redefined
+		fi
+		2 2 varn symbol.type=
+		1 varn 1 + 1 var=
+		1 varn 2 varn symbol.value=
+		get_next_token
+		continue
+	}
+	pc @ 1 varn generate_stack_frame pc =
+	1 0 xreturn1
+}
+
+def compile_define_proc_1
+{
+	1 arg
+	dup symbol.value
+	{
+		dup 0 1 - == if
+			drop dup 2 swap symbol.type=
+			pc @ swap symbol.value=
+			1 xreturn0
+		fi
+		dup fetch_int swap
+		pc @ generate_call drop
+		continue
+	}
+}
+
+def compile_define_proc
+{
+	globals 1 arg symbol_find
+	dup symbol.type 0 == if
+		dup 0 1 - swap symbol.value=
+		compile_define_proc_1
+		1 xreturn0
+	fi
+	dup symbol.type 1 == if
+		compile_define_proc_1
+		1 xreturn0
+	fi
+	dup symbol.type 2 == if
+		32 exit # symbol redefined
+	fi
+	dup symbol.type 3 == if
+		32 exit # symbol redefined
+	fi
+	unimplemented
+}
+
+def compile_define_var
+{
+	globals 1 arg symbol_find
+	dup symbol.type 0 == if
+		dup 3 swap symbol.type=
+		pc @ swap symbol.value=
+		pc @ generate_global pc =
+		1 xreturn0
+	fi
+	33 exit # symbol redefined
+}
+
+def compile_args_name
+{
+	2 vars # count, sym
+	0 1 var=
+	next_token is_symbol require
+	{
+		next_token is_symbol not if break fi
+		locals next_token symbol_find 2 var=
+		2 varn symbol.type if
+			34 exit # local symbol reused
+		fi
+		1 2 varn symbol.type=
+		1 varn 1 + 1 var=
+		1 varn 2 varn symbol.value=
+		get_next_token
+		continue
+	}
+
+	# The last one was the procedure name, not an argument!
+	0 2 varn symbol.type=
+	2 varn symbol.name& @ compile_define_proc
+
+	1 varn 1 - local_args_num =
+	1 0 xreturn1
+}
+
+def compile_procedure
+{
+	1 vars # end
+	token_def token not if 0 0 xreturn1 fi
+	compile_args_name require
+	pc dup @ generate_proc_start swap =
+	token_ob token require
+	compile_vars require
+	0 1 - 1 var=
+	pc @ 1 var& compile_body require
+	1 varn label_define
+	pc dup @ generate_proc_end swap =
+	token_cb token require
+	locals symbol_table_clear
+	1 0 xreturn1
+}
+
+def compile_hexdef
+{
+	token__def token if
+		next_token is_symbol require
+		next_token compile_define_proc
+		get_next_token
+		1 0 xreturn1
+	fi
+	token_var token if
+		next_token is_symbol require
+		next_token compile_define_var
+		get_next_token
+		1 0 xreturn1
+	fi
+	0 0 xreturn1
+}
+
+def character convert_hex
+{
+	1 arg
+	dup 48 < if 0 1 - 1 xreturn1 fi
+	dup 58 < if 48 - 1 xreturn1 fi
+	dup 97 < if 0 1 - 1 xreturn1 fi
+	dup 103 < if 87 - 1 xreturn1 fi
+	0 1 - 1 xreturn1
+}
+
+def compile_hexbyte
+{
+	1 vars
+	next_token
+	dup 0 c[] 39 != if 0 0 xreturn1 fi
+	dup 1 c[] convert_hex dup 0 1 - == if 0 0 xreturn1 fi
+	1 var=
+	dup 2 c[] convert_hex dup 0 1 - == if 0 0 xreturn1 fi
+	1 varn 4 << + 1 var=
+	3 c[] 0 != if 0 0 xreturn1 fi
+	pc dup @ 1 varn emit dup @ 1 + swap =
+	get_next_token
+	1 0 xreturn1
+}
+
+def compile_program_1
+{
+	compile_procedure if 1 0 xreturn1 fi
+	compile_hexdef if 1 0 xreturn1 fi
+	compile_hexbyte if 1 0 xreturn1 fi
+	0 0 xreturn1
+}
+
+def compile_program
+{
+	{
+		compile_program_1 if continue fi
+		1 0 xreturn1
+	}
+}
+
+# program = (procedure | hexdef | hexbyte)*
+# global = ("_def" | "_var") symbol
+# hexbyte = /'[0-9a-f][0-9a-f]/
+# procedure = ("def" | "_def") args name "{" vars body "}"
+# args = symbol*
+# name = symbol
+# vars = "var" symbol
+# body = (number | word | loop | jump | if)*
+# number = /[0-9]+/
+# word = symbol
+# loop = "{" body "}"
+# jump = "break" | "continue" | "until" | "while"
+# if = "if" body "fi" | "if" body "else" body "fi"
+
+def main
+{
+	get_next_token
+	compile_program require
+	eof require
+	dump
+	0 0 xreturn1
+}
+
+# This row of NOPs is recognised by the start-up code
+'90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90
+def _start
+{
+	main exit
+}

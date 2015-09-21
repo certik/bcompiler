@@ -1,0 +1,624 @@
+#
+# HEX4 for Linux-i386-ELF
+#
+# Copyright (C) 2001, Edmund GRIMLEY EVANS <edmundo@rano.org>
+#
+
+###
+### ELF headers
+###
+
+# Elf32_Ehdr
+  '7f '45 '4c '46 '01 '01 '01	# e_ident
+  '00 '00 '00 '00 '00 '00 '00 '00 '00
+  '02 '00			# e_type
+  '03 '00			# e_machine
+  '01 '00 '00 '00		# e_version
+  '54 '80 '04 '08		# e_entry = 0x08048000 + _start
+  '34 '00 '00 '00		# e_phoff = len(ehdr)
+  '00 '00 '00 '00		# e_shoff
+  '00 '00 '00 '00		# e_flags
+  '34 '00			# e_ehsize = len(ehdr)
+  '20 '00			# e_phentsize = len(phdr)
+  '01 '00			# e_phnum
+  '00 '00			# e_shentsize
+  '00 '00			# e_shnum
+  '00 '00			# e_shstrndx
+
+# Elf32_Phdr
+  '01 '00 '00 '00		# p_type
+  '00 '00 '00 '00		# p_offset
+  '00 '80 '04 '08		# p_vaddr = 0x08048000
+  '00 '80 '04 '08		# p_paddr = 0x08048000
+  '00 '10 '00 '00	#FIXME	# p_filesz = len(ehdr) + len(phdr) + len(prog)
+  '00 '10 '00 '00	#FIXME	# p_memsz = len(ehdr) + len(phdr) + len(prog)
+  '07 '00 '00 '00		# p_flags
+  '00 '10 '00 '00		# p_align
+
+######################################################################
+
+# Enter here:
+
+# Look for a bunch of NOPs and jump there.
+
+	'b8 '00 '80 '04 '08		# mov	$0x08048000,%eax
+#:nop_loop
+	'40				# inc	%eax
+	'81 '38 '90 '90 '90 '90		# cmpl	$0x90909090,(%eax)
+	'75 'f7				# jne	nop_loop
+	'81 '78 '04 '90 '90 '90 '90	# cmpl	$0x90909090,(%eax)
+	'75 'ee				# jne	nop_loop
+	'81 '78 '08 '90 '90 '90 '90	# cmpl	$0x90909090,(%eax)
+	'75 'e5				# jne	nop_loop
+	'ff 'e0				# jmp	*%eax
+
+######################################################################
+
+###
+### Support for functions: arguments, variables, return values
+###
+
+:enter
+	'58			# pop	%eax
+	'55			# push	%ebp
+	'8b 'ec			# mov	%esp,%ebp
+	'50			# push	%eax
+	'c3			# ret
+
+:vars
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'f7 'db			# neg	%ebx
+	'8d '24 '9c		# lea	(%esp,%ebx,4),%esp
+	'50			# push	%eax
+	'c3			# ret
+
+:arg
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'8b '4c '9d '04		# mov	4(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+:arg=
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'89 '4c '9d '04		# mov	%ecx,4(%ebp,%ebx,4)
+	'50			# push	%eax
+	'c3			# ret
+
+:arg&
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'8d '4c '9d '04		# lea	4(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+:var
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'f7 'db			# neg	%ebx
+	'8b '4c '9d '00		# mov	0(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+:var=
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'f7 'db			# neg	%ebx
+	'89 '4c '9d '00		# mov	%ecx,0(%ebp,%ebx,4)
+	'50			# push	%eax
+	'c3			# ret
+
+:var&
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'f7 'db			# neg	%ebx
+	'8d '4c '9d '00		# lea	0(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+:xreturn0
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'c9			# leave
+	'58			# pop	%eax
+	'8d '24 '9c		# lea	(%esp,%ebx,4),%esp
+	'50			# push	%eax
+	'c3			# ret
+
+:xreturn1
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'c9			# leave
+	'58			# pop	%eax
+	'8d '24 '9c		# lea	(%esp,%ebx,4),%esp
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+###
+### Stack manipulation
+###
+
+:drop
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:swap
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'50			# push	%eax
+	'51			# push	%ecx
+	'ff 'e3			# jmp	*%ebx
+
+:dup
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'50			# push	%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:rot
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'5a			# pop	%edx
+	'51			# push	%ecx
+	'53			# push	%ebx
+	'52			# push	%edx
+	'50			# push	%eax
+	'c3
+
+:pick
+	'8b '44 '24 '04		# mov	4(%esp),%eax
+	'01 'c0			# add	%eax,%eax
+	'01 'c0			# add	%eax,%eax
+	'8d '5c '24 '08		# lea	8(%esp),%ebx
+	'01 'd8			# add	%ebx,%eax
+	'8b '00			# mov	(%eax),%eax
+	'89 '44 '24 '04		# mov	%eax,4(%esp)
+	'c3			# ret
+
+###
+### Arithmetic
+###
+
+:-
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'29 '04 '24		# sub	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+:+
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'01 '04 '24		# add	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+:*
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'0f 'af '04 '24		# imul	(%esp),%eax
+	'89 '04 '24		# mov	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+:<<
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'd3 'e0			# shl	%cl,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:>>
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'd3 'f8			# sar	%cl,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+# Comparisons
+
+:<
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '9c 'c0		# setl	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:<=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '9e 'c0		# setle	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:==
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '94 'c0		# sete	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:!=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '95 'c0		# setne	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+###
+### Memory access
+###
+
+:@
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'8b '00			# mov	(%eax),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+:=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'89 '08			# mov	%ecx,(%eax)
+	'53			# push	%ebx
+	'c3			# ret
+
+:address
+	# Convert relative address to absolute
+	'5b			# pop	%ebx
+	'8d '43 'fb		# lea	-5(%ebx),%eax
+	'01 '04 '24		# add	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+###
+### Flow of control
+###
+
+:jump
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'01 'c3			# add	%eax,%ebx
+	'83 'eb '05		# sub	$5,%ebx
+	'53			# push	%ebx
+	'c3			# ret
+
+:branch
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'85 'c9			# test	%ecx,%ecx
+	'75 '02			# jne	+2
+	'50			# push	%eax
+	'c3			# ret
+	'01 'c3			# add	%eax,%ebx
+	'83 'eb '05		# sub	$5,%ebx
+	'53			# push	%ebx
+	'c3			# ret
+
+######################################################################
+
+###
+### System calls
+###
+
+:exit
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'31 'c0			# xor	%eax,%eax
+	'40			# inc	%eax
+	'cd '80			# int	$0x80
+
+:_brk
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'b8 '2d '00 '00 '00	# mov	$0x45,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+:getchar
+	'6a '00			# push	$0x0
+	'31 'db			# xor	%ebx,%ebx
+	'89 'e1			# mov	%esp,%ecx
+	'31 'd2			# xor	%edx,%edx
+	'42			# inc	%edx
+	'b8 '03 '00 '00 '00	# mov	$0x3,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'85 'c0			# test	%eax,%eax
+	'75 '01			# jne	+1
+	'4b			# dec	%ebx
+	'58			# pop	%eax
+	'53			# push	%ebx
+	'50			# push	%eax
+	'c3			# ret
+
+:putchar
+	'31 'db			# xor	%ebx,%ebx
+	'43			# inc	%ebx
+	'8d '4c '24 '04		# lea	0x4(%esp,1),%ecx
+	'89 'da			# mov	%ebx,%edx
+	'b8 '04 '00 '00 '00	# mov	$0x4,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+:sbrko
+	1 xreturn1
+:sbrk
+	enter 1 arg 0 _brk dup
+	rot + dup _brk == &sbrko branch
+	drop 0 1 - 1 xreturn1
+
+######################################################################
+
+###
+### Debugging
+###
+
+# A stackless implementation of exit(42), for debugging:
+# '31 'c0 '40 'b3 '2a 'cd '80
+
+:outw
+	enter
+	1 arg
+	dup putchar 8 >>
+	dup putchar 8 >>
+	dup putchar 8 >>
+	putchar
+	1 xreturn0
+
+:outs
+	'68 'de 'ad 'be 'ef
+	outw
+	outw
+	outw
+	outw
+	outw
+	outw
+	outw
+	outw
+	'ff
+
+######################################################################
+
+###
+### The program itself
+###
+
+:pos
+	'00 '00 '00 '00
+:symtab
+	'00 '00 '00 '00
+:symtabp
+	'00 '00 '00 '00
+
+
+:exit0
+	0 exit
+
+:getc
+	enter
+	getchar
+	dup 0 1 - == &exit0 branch
+	0 xreturn1
+
+:generate_byte
+	enter
+	1 arg putchar
+	&pos address dup @ 1 + swap =
+	1 xreturn0
+
+:generate_word
+	enter
+	1 arg
+	&pos address dup @ 4 + swap =
+	dup putchar 8 >>
+	dup putchar 8 >>
+	dup putchar 8 >>
+	putchar
+	1 xreturn0
+
+:rsy1
+	drop
+	1 xreturn1
+
+:read_symbol
+	enter
+	1 arg
+:rsyl
+	3735928559			# 0xdeadbeef
+	*
+	getc
+	dup 32 <= &rsy1 branch
+	+
+	&rsyl jump
+
+:asyo
+	drop
+	&symtabp address dup @ swap
+	dup @ 8 +
+	8 sbrk
+	drop
+	swap =
+
+	dup rot swap =
+	4 + &pos address @ swap =
+	1 xreturn0
+
+:error2
+	2 exit
+
+:add_symbol
+	enter
+	1 arg
+	&symtab	address @
+:add_symbol_loop
+	dup &symtabp address @ == &asyo branch
+	dup @ 2 pick == &error2 branch
+	8 +
+	&add_symbol_loop jump
+
+:wsyo
+	&pos address dup @ 4 + swap =
+
+	swap
+	drop
+	4 + @ &pos address @ -
+
+	dup putchar 8 >>
+	dup putchar 8 >>
+	dup putchar 8 >>
+	putchar
+	1 xreturn0
+
+:error3
+	3 exit
+
+:write_symbol
+	enter
+	1 arg
+	&symtab address @
+:wsyl
+	dup &symtabp address @ == &error3 branch
+	dup @ 2 pick == &wsyo branch
+	8 +
+	&wsyl jump
+
+
+:hex1
+	48 -
+	1 xreturn1
+
+:hex2
+	87 -
+	1 xreturn1
+
+:error1
+	1 exit
+
+:convert_hex
+	enter
+	1 arg
+	dup 48 < &error1 branch
+	dup 58 < &hex1 branch
+	dup 97 < &error1 branch
+	dup 103 < &hex2 branch
+	&error1 jump
+
+:tok_hex
+	drop
+	getc convert_hex 4 <<
+	getc convert_hex + generate_byte
+	0 xreturn0
+
+:tok_ws
+	drop
+	0 xreturn0
+
+:tok_comment
+	drop
+:tok_comment_loop
+	getc
+	10 != &tok_comment_loop branch
+	0 xreturn0
+
+:is_digit_no
+	drop
+	0 1 xreturn1
+
+:is_digit_yes
+	1 1 xreturn1
+
+:is_digit
+	enter
+	1 arg
+	dup 48 < &is_digit_no branch
+	58 < &is_digit_yes branch
+	0 1 xreturn1
+
+:tok_number_out
+	drop
+	104 generate_byte		# 0x68 = push $X
+	generate_word
+	0 xreturn0
+
+:tok_number
+	0 swap
+:tok_number_loop
+	dup 32 <= &tok_number_out branch
+	48 - swap 10 * +
+	getc
+	&tok_number_loop jump
+
+:tok_label
+	drop
+	getc read_symbol add_symbol
+	0 xreturn0
+
+:tok_call
+	232 generate_byte		# 0xe8 = call
+	read_symbol write_symbol
+	0 xreturn0
+
+:tok_address
+	drop
+	104 generate_byte		# 0x68 = push $X
+	getc read_symbol write_symbol
+	0 xreturn0
+
+:get_token
+	enter
+	getc
+	dup 32 <= &tok_ws branch	# white space
+	dup 35 == &tok_comment branch	# comments with '#'
+	dup is_digit &tok_number branch	# numbers
+	dup 58 == &tok_label branch	# labels with ':'
+	dup 39 == &tok_hex branch	# in-line hex with "'"
+	dup 38 == &tok_address branch	# push address with '&'
+	&tok_call jump			# call
+
+:main
+	0 sbrk dup
+	&symtab address =
+	&symtabp address =
+:loop
+	get_token
+	&loop jump
+
+
+# This row of NOPs is recognised by the start-up code
+'90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90
+main exit

@@ -1,0 +1,269 @@
+#
+# HEX3 for Linux-i386-ELF
+#
+# Copyright (C) 2001, Edmund GRIMLEY EVANS <edmundo@rano.org>
+#
+
+# Elf32_Ehdr
+  7f 45 4c 46 01 01 01	# e_ident
+  00 00 00 00 00 00 00 00 00
+  02 00			# e_type
+  03 00			# e_machine
+  01 00 00 00		# e_version
+  80 82 04 08	#!	# e_entry = 0x08048000 + _start
+  34 00 00 00		# e_phoff = len(ehdr)
+  00 00 00 00		# e_shoff
+  00 00 00 00		# e_flags
+  34 00			# e_ehsize = len(ehdr)
+  20 00			# e_phentsize = len(phdr)
+  01 00			# e_phnum
+  00 00			# e_shentsize
+  00 00			# e_shnum
+  00 00			# e_shstrndx
+
+# Elf32_Phdr
+  01 00 00 00		# p_type
+  00 00 00 00		# p_offset
+  00 80 04 08		# p_vaddr = 0x08048000
+  00 80 04 08		# p_paddr = 0x08048000
+  00 03 00 00	#!	# p_filesz = len(ehdr) + len(phdr) + len(prog)
+  00 03 00 00	#!	# p_memsz = len(ehdr) + len(phdr) + len(prog)
+  07 00 00 00		# p_flags
+  00 10 00 00		# p_align
+
+# A stackless implementation of exit(42), for debugging:
+# 31 c0 40 b3 2a cd 80
+
+# The purpose of this function is to return the address that follows it.
+.z			# get_p:
+	e8 00 00 00 00		# call	$ + 0
+	58			# pop	%eax
+	83 c0 05		# add	$5,%eax
+	c3			# ret
+
+.p			# pos:
+	00 00 00 00
+.t			# symtab:
+	00 00 00 00
+.x			# symtabp:
+	00 00 00 00
+.l			# filelen:
+	00 00 00 00
+
+.G			# brk:
+	89 c3			# mov	%eax,%ebx
+	b8 2d 00 00 00		# mov	$0x45,%eax
+	cd 80			# int	$0x80
+	c3			# ret
+
+.C			# getchar:
+	6a 00			# push	$0x0
+	31 db			# xor	%ebx,%ebx
+	89 e1			# mov	%esp,%ecx
+	89 da			# mov	%ebx,%edx
+	42			# inc	%edx
+	b8 03 00 00 00		# mov	$0x3,%eax
+	cd 80			# int	$0x80
+	85 c0			# test	%eax,%eax
+	74 02			# je	exit
+	58			# pop	%eax
+	c3			# ret
+
+	31 c0			# xor	%eax,%eax
+
+.E			# exit:
+	89 c3			# mov	%eax,%ebx
+	31 c0			# xor	%eax,%eax
+	40			# inc	%eax
+	cd 80			# int	$0x80
+
+.P			# putchar:
+	31 db			# xor	%ebx,%ebx
+	43			# inc	%ebx
+	8d 4c 24 04		# lea	0x4(%esp,1),%ecx
+	89 da			# mov	%ebx,%edx
+	b8 04 00 00 00		# mov	$0x4,%eax
+	cd 80			# int	$0x80
+	c3			# ret
+
+.R			# read_sym:
+	e8 C			# call	getchar
+	c1 e0 08		# shl	$8,%eax
+	50			# push	%eax
+	e8 C			# call	getchar
+	5b			# pop	%ebx
+	01 d8			# add	%ebx,%eax
+	c1 e0 08		# shl	$8,%eax
+	50			# push	%eax
+	e8 C			# call	getchar
+	5b			# pop	%ebx
+	01 d8			# add	%ebx,%eax
+	c1 e0 08		# shl	$8,%eax
+	50			# push	%eax
+	e8 C			# call	getchar
+	5b			# pop	%ebx
+	01 d8			# add	%ebx,%eax
+	c3			# ret
+
+.A			# add_sym:
+	50			# push	%eax
+	e8 z			# call	get_p
+	59			# pop	%ecx
+	89 c2			# mov	%eax,%edx
+	8b 42 04		# mov	0x4(%edx),%eax
+	8b 5a 08		# mov	0x8(%edx),%ebx
+.e			# .back:
+	39 c3			# cmp	%eax,%ebx
+	74 13			# je	.out
+	39 08			# cmp	%ecx,(%eax)
+	74 05			# je	.err
+	83 c0 08		# add	$0x8,%eax
+	eb f3			# jmp	.back
+			# .err:
+	b8 02 00 00 00		# mov	$0x2,%eax
+	e8 E			# call	exit
+			# .out:
+	52			# push	%edx
+	51			# push	%ecx
+	53			# push	%ebx
+	89 d8			# mov	%ebx,%eax
+	83 c0 08		# add	$0x8,%eax
+	89 42 08		# mov	%eax,8(%edx)
+	e8 G			# call	brk
+	5b			# pop	%ebx
+	59			# pop	%ecx
+	5a			# pop	%edx
+	89 0b			# mov	%ecx,(%ebx)
+	8b 02			# mov	(%edx),%eax
+	89 43 04		# mov	%eax,0x4(%ebx)
+	c3			# ret
+
+.W			# write_sym:
+	50			# push	%eax
+	e8 z			# call	get_p
+	59			# pop	%ecx
+	89 c2			# mov	%eax,%edx
+	8b 42 04		# mov	0x4(%edx),%eax
+	8b 5a 08		# mov	0x8(%edx),%ebx
+.f			# .back2:
+	39 c3			# cmp	%eax,%ebx
+	74 09			# je	.err2
+	39 08			# cmp	%ecx,(%eax)
+	74 0f			# je	.out2
+	83 c0 08		# add	$0x8,%eax
+	eb f3			# jmp	.back
+			# .err2:
+	b8 03 00 00 00		# mov	$3,%eax
+	e8 E			# call	exit
+			# .out2:
+	8b 0a			# mov	(%edx),%ecx
+	83 c1 04		# add	$4,%ecx
+	89 0a			# mov	%ecx,(%edx)
+	8b 40 04		# mov	4(%eax),%eax
+	29 c8			# sub	%ecx,%eax
+
+	50			# push	%eax
+	e8 P			# call	putchar
+	58			# pop	%eax
+	c1 f8 08		# sar	$0x8,%eax
+	50			# push	%eax
+	e8 P			# call	putchar
+	58			# pop	%eax
+	c1 f8 10		# sar	$0x10,%eax
+	50			# push	%eax
+	e8 P			# call	putchar
+	58			# pop	%eax
+	c1 f8 18		# sar	$0x18,%eax
+	50			# push	%eax
+	e8 P			# call	putchar
+	58			# pop	%eax
+	c3			# ret
+
+.H			# gethex:
+	e8 C			# call	getchar
+	83 f8 20		# cmp	$0x20,%eax
+	0f 8e H			# jle	gethex
+	83 f8 23		# cmp	$0x23,%eax
+	75 13			# jne	.l1
+
+.Z			# .loop:
+	e8 C			# call	getchar
+	83 f8 0a		# cmp	$0xa,%eax
+	0f 85 Z			# jne	.loop
+	e9 H			# jmp	gethex
+
+			# .l1:
+			# .l2a:
+	83 f8 3a		# cmp	$58,%eax
+	75 0f			# jne	.l2b
+	e8 R			# call	read_sym
+	e8 A			# call	add_sym
+	e9 H			# jmp	gethex
+
+			# .l2b:
+	83 f8 2e		# cmp	$46,%eax
+	75 0f			# jne	.l2
+	e8 R			# call	read_sym
+	e8 W			# call	write_sym
+	e9 H			# jmp	gethex
+
+			# .l2:
+	83 f8 30		# cmp	$0x30,%eax
+	7c 09			# jl	.l3
+	83 f8 3a		# cmp	$0x3a,%eax
+	7d 04			# jge	.l3
+	83 e8 30		# sub	$0x30,%eax
+	c3			# ret
+
+			# .l3:
+	83 f8 61		# cmp	$0x61,%eax
+	7c 09			# jl	.l4
+	83 f8 67		# cmp	$0x67,%eax
+	7d 04			# jge	.l4
+	83 e8 57		# sub	$0x57,%eax
+	c3			# ret
+
+			# .l4:
+	b8 01 00 00 00		# mov	$1,%eax
+	e8 E			# call	exit
+
+
+.S			# _start:
+	e8 G			# call	brk
+	50			# push	%eax
+	e8 z			# call	get_p
+	89 c3			# mov	%eax,%ebx
+	58			# pop	%eax
+	89 43 04		# mov	%eax,4(%ebx)
+	89 43 08		# mov	%eax,8(%ebx)
+.T
+	e8 H			# call	gethex
+	c1 e0 04		# shl	$0x4,%eax
+	50			# push	%eax
+	e8 H			# call	gethex
+	01 04 24		# add	%eax,(%esp,1)
+	e8 P			# call	putchar
+	58			# pop	%eax
+	e8 z			# call	get_p
+	ff 00			# incl	(%eax)
+	e9 T			# jmp	mloop
+
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+
+	e9 S			# jmp	_start
+
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90
+	90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90

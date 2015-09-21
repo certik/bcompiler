@@ -1,0 +1,554 @@
+#
+# BCC header file for Linux-i386-ELF
+#
+# Copyright (C) 2001, Edmund GRIMLEY EVANS <edmundo@rano.org>
+#
+
+###
+### ELF headers
+###
+
+# Elf32_Ehdr
+  '7f '45 '4c '46 '01 '01 '01	# e_ident
+  '00 '00 '00 '00 '00 '00 '00 '00 '00
+  '02 '00			# e_type
+  '03 '00			# e_machine
+  '01 '00 '00 '00		# e_version
+  '54 '80 '04 '08		# e_entry = 0x08048000 + len(ehdr) + len(phdr)
+  '34 '00 '00 '00		# e_phoff = len(ehdr)
+  '00 '00 '00 '00		# e_shoff
+  '00 '00 '00 '00		# e_flags
+  '34 '00			# e_ehsize = len(ehdr)
+  '20 '00			# e_phentsize = len(phdr)
+  '01 '00			# e_phnum
+  '00 '00			# e_shentsize
+  '00 '00			# e_shnum
+  '00 '00			# e_shstrndx
+
+# Elf32_Phdr
+  '01 '00 '00 '00		# p_type
+  '00 '00 '00 '00		# p_offset
+  '00 '80 '04 '08		# p_vaddr = 0x08048000
+  '00 '80 '04 '08		# p_paddr = 0x08048000
+  '00 'f0 '00 '00	#FIXME	# p_filesz = len(ehdr) + len(phdr) + len(prog)
+  '00 'f0 '00 '00	#FIXME	# p_memsz = len(ehdr) + len(phdr) + len(prog)
+  '07 '00 '00 '00		# p_flags
+  '00 '10 '00 '00		# p_align
+
+######################################################################
+
+# Enter here:
+
+def _start
+{
+	0 main exit
+}
+
+######################################################################
+
+###
+### Stack manipulation: like in Forth
+###
+
+_def drop
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def swap
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'50			# push	%eax
+	'51			# push	%ecx
+	'53			# push	%ebx
+	'c3			# ret
+
+_def dup
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'50			# push	%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def 2dup
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'51			# push	%ecx
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def rot
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'5a			# pop	%edx
+	'51			# push	%ecx
+	'53			# push	%ebx
+	'52			# push	%edx
+	'50			# push	%eax
+	'c3
+
+_def pick
+	'8b '44 '24 '04		# mov	4(%esp),%eax
+	'01 'c0			# add	%eax,%eax
+	'01 'c0			# add	%eax,%eax
+	'8d '5c '24 '08		# lea	8(%esp),%ebx
+	'01 'd8			# add	%ebx,%eax
+	'8b '00			# mov	(%eax),%eax
+	'89 '44 '24 '04		# mov	%eax,4(%esp)
+	'c3			# ret
+
+###
+### Arithmetic
+###
+### Unimplemented: | ^ log
+###
+
+_def +
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'01 '04 '24		# add	%eax,(%esp)
+	'53			# push	%ebx
+	'c3			# ret
+
+_def -
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'29 '04 '24		# sub	%eax,(%esp)
+	'53			# push	%ebx
+	'c3			# ret
+
+_def *
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'0f 'af '04 '24		# imul	(%esp),%eax
+	'89 '04 '24		# mov	%eax,(%esp)
+	'53			# push	%ebx
+	'c3			# ret
+
+_def /
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'99			# cltd
+        'f7 'f9                 # idiv  %ecx,%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def %
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'99			# cltd
+        'f7 'f9                 # idiv  %ecx,%eax
+	'52			# push	%edx
+	'53			# push	%ebx
+	'c3			# ret
+
+_def &
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'21 '04 '24		# and	%eax,(%esp)
+	'53			# push	%ebx
+	'c3			# ret
+	'53			# push	%ebx
+	'c3			# ret
+
+_def <<
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'd3 'e0			# shl	%cl,%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def >>
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'd3 'f8			# sar	%cl,%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+###
+### Comparisons
+###
+### Unimplemented: > >=
+###
+
+_def <
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '9c 'c0		# setl	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def <=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '9e 'c0		# setle	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def ==
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '94 'c0		# sete	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def !=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '95 'c0		# setne	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+###
+### Memory access
+###
+### Unimplemented: c@ c= [] []= []&
+
+_def @
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'8b '00			# mov	(%eax),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def =
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'89 '08			# mov	%ecx,(%eax)
+	'53			# push	%ebx
+	'c3			# ret
+
+_def c[]
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'0f 'be '04 '10		# movsbl (%eax,%edx,1),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def c[]=
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'88 '0c '10		# mov	%cl,(%eax,%edx,1)
+	'53			# push	%ebx
+	'c3			# ret
+
+_def c[]&
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'8d '04 '10		# lea	(%eax,%edx,1),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+######################################################################
+
+###
+### System calls
+###
+
+_def exit
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'31 'c0			# xor	%eax,%eax
+	'40			# inc	%eax
+	'cd '80			# int	$0x80
+
+_def getc
+        '8d '4c '24 '04         # lea   0x4(%esp,1),%ecx
+        '8b '19                 # mov   (%ecx),%ebx
+        '31 'd2                 # xor   %edx,%edx
+        '42                     # inc   %edx
+        'b8 '03 '00 '00 '00     # mov   $3,%eax
+        'cd '80                 # int   $0x80
+        '85 'c0                 # test  %eax,%eax
+        '75 '04                 # jne   +4
+        'ff '4c '24 '04         # decl  0x4(%esp,1)
+        'c3                     # ret    
+
+def getchar
+{
+	0 getc return1
+}
+
+_def putc
+	'8b '5c '24 '04         # mov   4(%esp),%ebx
+	'8d '4c '24 '08		# lea	8(%esp),%ecx
+        '31 'd2                 # xor	%edx,%edx
+        '42                     # inc   %edx
+	'b8 '04 '00 '00 '00	# mov	$4,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'58			# pop	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+def c putchar
+{
+	# putc does not return any error code
+	c 1 putc return0
+}
+
+_def _brk
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'b8 '2d '00 '00 '00	# mov	$0x45,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+def increment sbrk
+{
+	var pos
+
+	0 _brk pos=
+	pos increment + dup _brk == if
+		pos return1
+	fi
+	-1 return1
+}
+
+######################################################################
+
+###
+### Debugging
+###
+
+# A stackless implementation of exit(42), for debugging:
+# '31 'c0 '40 'b3 '2a 'cd '80
+
+def w outw
+{
+	w
+	dup putchar 8 >>
+	dup putchar 8 >>
+	dup putchar 8 >>
+	putchar
+	return0
+}
+
+def outs
+{
+	3735928559 # 0xdeadbeef
+	outw outw outw outw
+	outw outw outw outw
+	outw outw outw outw
+	0 exit
+}
+
+######################################################################
+
+###
+### A bogus implementation of malloc, realloc, free
+###
+
+def wsize
+{
+	4 return1
+}
+
+def size malloc
+{
+	size wsize + sbrk
+	dup size swap =
+	wsize + return1
+}
+
+def ptr size realloc
+{
+	var old_size
+	var new_ptr
+
+	ptr 0 == if
+		# just call malloc
+		size malloc return1
+	fi
+	ptr wsize - @ old_size=
+	size old_size <= if
+		# keep the same bit of memory
+		ptr return1
+	fi
+	size malloc new_ptr=
+	# copy old data to new memory
+	{
+		old_size 0 == if break fi
+		old_size 1 - old_size=
+		ptr old_size c[] new_ptr old_size c[]=
+		continue
+	}
+	new_ptr return1
+}
+
+def ptr free
+{
+	# do nothing
+	return0
+}
+
+######################################################################
+
+###
+### Other library functions
+###
+
+def x not
+{
+	x if
+		0 return1
+	else
+		1 return1
+	fi
+}
+
+def a b cmp
+{
+	a b < if
+		-1 return1
+	fi
+	a b == if
+		0 return1
+	fi
+	1 return1
+}
+
+def p q strcmp
+{
+	var i
+	var r
+	0 i=
+	{
+		p i c[] q i c[] cmp r=
+		r until
+		p i c[] while
+		i 1 + i=
+		continue
+	}
+	r return1
+}
+
+def s strlen
+{
+	var n
+	0 n=
+	{
+		s n c[] while
+		n 1 + n=
+		continue
+	}
+	n return1
+}
+
+def s strdup
+{
+	var n
+	var s1
+	0 n=
+	s strlen 1 + malloc s1=
+	{
+		s n c[] while
+		s n c[] s1 n c[]=
+		n 1 + n=
+		continue
+	}
+	s1 return1
+}
+
+def n0 fd printd
+{
+	var n
+	var i
+	var _buf2 var _buf1 var buf # nasty hack!
+
+	n0 n=
+	0 i=
+	n 0 < if
+		45 fd putc
+		0 n - n=
+		n 0 < if
+			# cope with INT_MIN
+			-10 n - n=
+			n 10 % 48 + buf& i c[]=
+			i 1 + i=
+			n 10 / 1 + n=
+		fi
+	fi
+	{
+		n 10 % 48 + buf& i c[]=
+		i 1 + i=
+		n 10 / n=
+		n while
+		continue
+	}
+	{
+		i 1 - i=
+		buf& i c[] fd putc
+		i while
+		continue
+	}
+	return0		
+}
+
+def s fd prints
+{
+	var i
+	0 i=
+	{
+		s i c[] while
+		s i c[] fd putc
+		i 1 + i=
+		continue
+	}
+	return0
+}
+
+#######################################################################
+
+###
+### Unfortunately we need this to compute the user's line number
+###
+
+def header_lines
+{
+	554 return1
+}

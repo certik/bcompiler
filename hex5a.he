@@ -1,0 +1,1183 @@
+#
+# HEX5 for Linux-i386-ELF
+#
+# Copyright (C) 2001, Edmund GRIMLEY EVANS <edmundo@rano.org>
+#
+
+###
+### ELF headers
+###
+
+# Elf32_Ehdr
+  '7f '45 '4c '46 '01 '01 '01	# e_ident
+  '00 '00 '00 '00 '00 '00 '00 '00 '00
+  '02 '00			# e_type
+  '03 '00			# e_machine
+  '01 '00 '00 '00		# e_version
+  '54 '80 '04 '08		# e_entry = 0x08048000 + _start
+  '34 '00 '00 '00		# e_phoff = len(ehdr)
+  '00 '00 '00 '00		# e_shoff
+  '00 '00 '00 '00		# e_flags
+  '34 '00			# e_ehsize = len(ehdr)
+  '20 '00			# e_phentsize = len(phdr)
+  '01 '00			# e_phnum
+  '00 '00			# e_shentsize
+  '00 '00			# e_shnum
+  '00 '00			# e_shstrndx
+
+# Elf32_Phdr
+  '01 '00 '00 '00		# p_type
+  '00 '00 '00 '00		# p_offset
+  '00 '80 '04 '08		# p_vaddr = 0x08048000
+  '00 '80 '04 '08		# p_paddr = 0x08048000
+  '00 '40 '00 '00	#FIXME	# p_filesz = len(ehdr) + len(phdr) + len(prog)
+  '00 '40 '00 '00	#FIXME	# p_memsz = len(ehdr) + len(phdr) + len(prog)
+  '07 '00 '00 '00		# p_flags
+  '00 '10 '00 '00		# p_align
+
+######################################################################
+
+# Enter here:
+
+# Look for a bunch of NOPs and jump there.
+
+	'b8 '00 '80 '04 '08		# mov	$0x08048000,%eax
+#:nop_loop
+	'40				# inc	%eax
+	'81 '38 '90 '90 '90 '90		# cmpl	$0x90909090,(%eax)
+	'75 'f7				# jne	nop_loop
+	'81 '78 '04 '90 '90 '90 '90	# cmpl	$0x90909090,(%eax)
+	'75 'ee				# jne	nop_loop
+	'81 '78 '08 '90 '90 '90 '90	# cmpl	$0x90909090,(%eax)
+	'75 'e5				# jne	nop_loop
+	'ff 'e0				# jmp	*%eax
+
+######################################################################
+
+###
+### Support for functions: arguments, variables, return values
+###
+
+:enter
+	'58			# pop	%eax
+	'55			# push	%ebp
+	'8b 'ec			# mov	%esp,%ebp
+	'50			# push	%eax
+	'c3			# ret
+
+:vars
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'f7 'db			# neg	%ebx
+	'8d '24 '9c		# lea	(%esp,%ebx,4),%esp
+	'50			# push	%eax
+	'c3			# ret
+
+:arg
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'8b '4c '9d '04		# mov	4(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+:arg=
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'89 '4c '9d '04		# mov	%ecx,4(%ebp,%ebx,4)
+	'50			# push	%eax
+	'c3			# ret
+
+:arg&
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'8d '4c '9d '04		# lea	4(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+:var
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'f7 'db			# neg	%ebx
+	'8b '4c '9d '00		# mov	0(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+:var=
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'f7 'db			# neg	%ebx
+	'89 '4c '9d '00		# mov	%ecx,0(%ebp,%ebx,4)
+	'50			# push	%eax
+	'c3			# ret
+
+:var&
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'f7 'db			# neg	%ebx
+	'8d '4c '9d '00		# lea	0(%ebp,%ebx,4),%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+:xreturn0
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'c9			# leave
+	'58			# pop	%eax
+	'8d '24 '9c		# lea	(%esp,%ebx,4),%esp
+	'50			# push	%eax
+	'c3			# ret
+
+:xreturn1
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'c9			# leave
+	'58			# pop	%eax
+	'8d '24 '9c		# lea	(%esp,%ebx,4),%esp
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+###
+### Stack manipulation
+###
+
+:drop
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:swap
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'50			# push	%eax
+	'51			# push	%ecx
+	'ff 'e3			# jmp	*%ebx
+
+:dup
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'50			# push	%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:twodup
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'51			# push	%ecx
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:rot
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'5a			# pop	%edx
+	'51			# push	%ecx
+	'53			# push	%ebx
+	'52			# push	%edx
+	'50			# push	%eax
+	'c3
+
+:pick
+	'8b '44 '24 '04		# mov	4(%esp),%eax
+	'01 'c0			# add	%eax,%eax
+	'01 'c0			# add	%eax,%eax
+	'8d '5c '24 '08		# lea	8(%esp),%ebx
+	'01 'd8			# add	%ebx,%eax
+	'8b '00			# mov	(%eax),%eax
+	'89 '44 '24 '04		# mov	%eax,4(%esp)
+	'c3			# ret
+
+###
+### Arithmetic
+###
+
+:-
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'29 '04 '24		# sub	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+:+
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'01 '04 '24		# add	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+:bitand
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'21 '04 '24		# and	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+:*
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'0f 'af '04 '24		# imul	(%esp),%eax
+	'89 '04 '24		# mov	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+:<<
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'd3 'e0			# shl	%cl,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:>>
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'd3 'f8			# sar	%cl,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+# Comparisons
+
+:<
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '9c 'c0		# setl	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:<=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '9e 'c0		# setle	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:==
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '94 'c0		# sete	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+:!=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '95 'c0		# setne	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+###
+### Memory access
+###
+
+:@
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'8b '00			# mov	(%eax),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+:=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'89 '08			# mov	%ecx,(%eax)
+	'53			# push	%ebx
+	'c3			# ret
+
+:address
+	# Convert relative address to absolute
+	'5b			# pop	%ebx
+	'8d '43 'fb		# lea	-5(%ebx),%eax
+	'01 '04 '24		# add	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+:c[]
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'0f 'be '04 '10		# movsbl (%eax,%edx,1),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+:c[]=
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'88 '0c '10		# mov	%cl,(%eax,%edx,1)
+	'53			# push	%ebx
+	'c3			# ret
+
+:c[]&
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'8d '04 '10		# lea	(%eax,%edx,1),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+###
+### Flow of control
+###
+
+:jump
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'01 'c3			# add	%eax,%ebx
+	'83 'eb '05		# sub	$5,%ebx
+	'53			# push	%ebx
+	'c3			# ret
+
+:branch
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'85 'c9			# test	%ecx,%ecx
+	'75 '02			# jne	+2
+	'50			# push	%eax
+	'c3			# ret
+	'01 'c3			# add	%eax,%ebx
+	'83 'eb '05		# sub	$5,%ebx
+	'53			# push	%ebx
+	'c3			# ret
+
+:call
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+######################################################################
+
+###
+### System calls
+###
+
+:exit
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'31 'c0			# xor	%eax,%eax
+	'40			# inc	%eax
+	'cd '80			# int	$0x80
+
+:_brk
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'b8 '2d '00 '00 '00	# mov	$0x45,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+:getchar
+	'6a '00			# push	$0x0
+	'31 'db			# xor	%ebx,%ebx
+	'89 'e1			# mov	%esp,%ecx
+	'31 'd2			# xor	%edx,%edx
+	'42			# inc	%edx
+	'b8 '03 '00 '00 '00	# mov	$0x3,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'85 'c0			# test	%eax,%eax
+	'75 '01			# jne	+1
+	'4b			# dec	%ebx
+	'58			# pop	%eax
+	'53			# push	%ebx
+	'50			# push	%eax
+	'c3			# ret
+
+:putchar
+	'31 'db			# xor	%ebx,%ebx
+	'43			# inc	%ebx
+	'8d '4c '24 '04		# lea	0x4(%esp,1),%ecx
+	'89 'da			# mov	%ebx,%edx
+	'b8 '04 '00 '00 '00	# mov	$0x4,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+:sbrko
+	1 xreturn1
+:sbrk
+	enter 1 arg 0 _brk dup
+	rot + dup _brk == &sbrko branch
+	drop 0 1 - 1 xreturn1
+
+######################################################################
+
+###
+### Debugging
+###
+
+# A stackless implementation of exit(42), for debugging:
+# '31 'c0 '40 'b3 '2a 'cd '80
+
+:outw
+	enter
+	1 arg
+	dup putchar 8 >>
+	dup putchar 8 >>
+	dup putchar 8 >>
+	putchar
+	1 xreturn0
+
+:outs
+	'68 'de 'ad 'be 'ef
+	outw
+	outw
+	outw
+	outw
+	outw
+	outw
+	outw
+	outw
+	'ff
+
+######################################################################
+
+###
+### A bogus implementation of malloc, realloc, free
+###
+
+:wsize
+	enter
+	4 0 xreturn1
+
+:malloc
+	enter
+	1 arg wsize + sbrk
+	dup 1 arg swap =
+	wsize + 1 xreturn1
+
+:realloc2
+	1 arg malloc 2 xreturn1
+:realloc1
+	2 var 2 xreturn1
+:realloc0
+	2 arg 2 xreturn1
+:realloc
+	enter 2 vars
+	2 arg 0 == &realloc2 branch
+	2 arg wsize - @
+	1 var=
+	1 arg 1 var <= &realloc0 branch
+	1 arg malloc 2 var=
+:realloc_loop
+	1 var 0 == &realloc1 branch
+	1 var 1 - 1 var=
+	2 arg 1 var c[]
+	2 var 1 var c[]=
+	&realloc_loop jump
+
+:free
+	enter
+	1 xreturn0
+
+######################################################################
+
+###
+### The program itself
+###
+
+:not0
+	0 1 xreturn1
+:not
+	enter
+	1 arg &not0 branch
+	1 1 xreturn1
+
+:cmp_out
+	2 xreturn1
+:cmp
+	enter
+	0 1 - 2 arg 1 arg < &cmp_out branch
+	0 2 arg 1 arg == &cmp_out branch
+	1 &cmp_out jump
+
+:strcmp_out
+	2 xreturn1
+:strcmp
+	enter
+	1 vars
+	0 1 var=
+:strcmp_loop
+	2 arg 1 var c[] 1 arg 1 var c[] cmp
+	dup &strcmp_out branch
+	2 arg 1 var c[] not &strcmp_out branch
+	drop
+	1 var 1 + 1 var=
+	&strcmp_loop jump
+
+:strlen_0
+	1 var 1 xreturn1
+:strlen
+	enter
+	1 vars
+	0 1 var=
+:strlen_loop
+	1 arg 1 var c[] not &strlen_0 branch
+	1 var 1 + 1 var=
+	&strlen_loop jump
+
+:strdup_0
+	2 var 1 xreturn1
+:strdup
+	enter
+	2 vars
+	0 1 var=
+	1 arg strlen 1 + malloc 2 var=
+:strdup_loop
+	1 arg 1 var c[]
+	dup not &strdup_0 branch
+	2 var 1 var c[]=
+	1 var 1 + 1 var=
+	&strdup_loop jump
+
+:prints0
+	1 xreturn0
+:prints
+	enter
+	1 arg
+	0
+:prints_loop
+	twodup c[] dup not &prints0 branch
+	putchar
+	1 +
+	&prints_loop jump
+
+###
+### Binary image
+###
+
+:binary
+	'00 '00 '00 '00
+:binary_size
+	'00 '00 '00 '00
+:pc
+	'00 '00 '00 '00
+
+:emit1
+	1 arg &binary address @ 2 arg c[]=
+	2 xreturn0
+:emit
+	enter
+	2 arg &binary_size address @ < &emit1 branch
+	2 arg 1 + 1 <<
+	dup &binary_size address =
+	&binary address @ swap realloc &binary address =
+	&emit1 jump
+
+:dump0
+	0 xreturn0
+:dump
+	enter 3 vars
+	&binary address @ 1 var=
+	&pc address @ 2 var=
+	0 3 var=
+:dump_loop
+	3 var 2 var == &dump0 branch
+	1 var 3 var c[] putchar
+	3 var 1 + 3 var=
+	&dump_loop jump
+
+:store_int
+	enter
+	1 arg
+	&binary address @ 2 arg c[]&
+	=
+	2 xreturn0
+
+:fetch_int
+	enter
+	&binary address @ 1 arg c[]&
+	@
+	1 xreturn1
+
+###
+### Lexical analysis
+###
+
+:token_eof
+	'00
+:token_word
+	'61 '00
+:token_def
+	'64 '65 '66 '00
+:token__def
+	'5f '64 '65 '66 '00
+:token__var
+	'5f '76 '61 '72 '00
+:token_ob
+	'7b '00
+:token_cb
+	'7d '00
+:token_var
+	'76 '61 '72 '00
+:token_if
+	'69 '66 '00
+:token_else
+	'65 '6c '73 '65 '00
+:token_fi
+	'66 '69 '00
+:token_break
+	'62 '72 '65 '61 '6b '00
+:token_continue
+	'63 '6f '6e '74 '69 '6e '75 '65 '00
+:token_until
+	'75 '6e '74 '69 '6c '00
+:token_while
+	'77 '68 '69 '6c '65 '00
+
+:is_symbol_0
+	0 1 xreturn1
+:is_symbol
+	enter
+	1 arg &token_eof address strcmp not &is_symbol_0 branch
+	1 arg &token_def address strcmp not &is_symbol_0 branch
+	1 arg &token_ob address strcmp not &is_symbol_0 branch
+	1 arg &token_cb address strcmp not &is_symbol_0 branch
+	1 arg &token_var address strcmp not &is_symbol_0 branch
+	1 arg &token_if address strcmp not &is_symbol_0 branch
+	1 arg &token_else address strcmp not &is_symbol_0 branch
+	1 arg &token_fi address strcmp not &is_symbol_0 branch
+	1 arg &token_break address strcmp not &is_symbol_0 branch
+	1 arg &token_continue address strcmp not &is_symbol_0 branch
+	1 arg &token_until address strcmp not &is_symbol_0 branch
+	1 arg &token_while address strcmp not &is_symbol_0 branch
+	1 1 xreturn1
+
+:next_token
+	# A silly fixed-length buffer
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+
+:get_token_eof
+	0 &next_token address =
+	0 xreturn0
+
+:get_token1
+	&next_token address swap
+:get_token1_loop
+	swap dup rot swap =
+	1 +
+	getchar
+	dup 32 <= not &get_token1_loop branch
+	drop
+	0 swap =
+	0 xreturn0
+
+:get_next_token
+	enter
+	1 vars
+:get_token_loop
+	getchar 1 var=
+	1 var 0 1 - == &get_token_eof branch
+	1 var 32 <= &get_token_loop branch
+	1 var 35 != &get_token1 branch
+:get_token_loop2
+	getchar 10 != &get_token_loop2 branch
+	&get_token_loop jump
+
+:eof
+	enter
+	&next_token address @ 0 == 0 xreturn1
+
+:token0
+	0 1 xreturn1
+:token
+	enter
+	&next_token address 1 arg strcmp &token0 branch
+	get_next_token
+	1 1 xreturn1
+
+:syntax_error
+	enter
+	19 exit
+
+:require
+	enter
+	1 arg not &syntax_error branch
+	1 xreturn0
+
+###
+### Symbol tables
+###
+
+:globals
+	'00 '00 '00 '00
+
+:symbol.sizeof
+	enter wsize 4 * 0 xreturn1
+
+:symbol.name&
+	enter
+	1 arg 1 xreturn1
+
+:symbol.type&
+	enter
+	1 arg wsize + 1 xreturn1
+
+:symbol.value&
+	enter
+	1 arg wsize 2 * + 1 xreturn1
+
+:symbol.next&
+	enter
+	1 arg wsize 3 * + 1 xreturn1
+
+:symbol.type
+	enter
+	1 arg symbol.type& @ 1 xreturn1
+
+:symbol.type=
+	enter
+	2 arg 1 arg symbol.type& = 2 xreturn0
+
+:symbol.value
+	enter
+	1 arg symbol.value& @ 1 xreturn1
+
+:symbol.value=
+	enter
+	2 arg 1 arg symbol.value& = 2 xreturn0
+
+:symbol_find_0
+	symbol.sizeof malloc
+	dup 1 var =
+	dup symbol.name& 1 arg strdup swap =
+	dup symbol.type& 0 swap =
+	dup symbol.value& 0 swap =
+	dup symbol.next& 0 swap =
+	2 xreturn1
+:symbol_find_1
+	1 var @ 2 xreturn1
+:symbol_find
+	enter
+	1 vars
+	&globals address 1 var=
+:symbol_find_loop
+	1 var @ not &symbol_find_0 branch
+	1 var @ symbol.name& @ 1 arg strcmp not &symbol_find_1 branch
+	1 var @ symbol.next& 1 var=
+	&symbol_find_loop jump
+
+###
+### Code generation
+###
+
+:generate_int
+	enter
+	2 arg 1 arg 255 bitand emit
+	2 arg 1 + 1 arg 8 >> 255 bitand emit
+	2 arg 2 + 1 arg 16 >> 255 bitand emit
+	2 arg 3 + 1 arg 24 >> 255 bitand emit
+	2 xreturn0
+
+:generate_call
+	enter
+	2 arg 232 emit # 0xe8 = call N
+	2 arg 1 + 1 arg 2 arg - 5 - generate_int
+	2 arg 5 + 2 xreturn1
+
+:generate_jump
+	enter
+	2 arg 233 emit # 0xe9 = jmp N
+	2 arg 1 + 1 arg 2 arg - 5 - generate_int
+	2 arg 5 + 2 xreturn1
+
+:generate_branch_false
+	enter
+	2 arg 88 emit # 0x58 = pop %eax
+	2 arg 1 + 133 emit
+	2 arg 2 + 192 emit # 0x85 0xc0 = test %eax,%eax
+	2 arg 3 + 15 emit
+	2 arg 4 + 132 emit # 0x0f 0x84 = je N
+	2 arg 5 + 1 arg 2 arg - 9 - generate_int
+	2 arg 9 + 2 xreturn1
+
+:generate_constant
+	enter
+	2 arg 104 emit # 0x68 = push N
+	2 arg 1 + 1 arg generate_int
+	2 arg 5 + 2 xreturn1
+
+:generate_proc_start
+	enter
+	1 arg 85 emit # 0x55 = push %ebp
+	1 arg 1 + 137 emit
+	1 arg 2 + 229 emit # 0x89 0xe5 = mov %esp,%ebp
+	1 arg 3 + 1 xreturn1
+
+:generate_proc_end
+	enter
+	1 arg 201 emit # 0xc9 = leave
+	1 arg 1 + 195 emit # 0xc3 = ret
+	1 arg 2 + 1 xreturn1
+
+###
+### Parser
+###
+
+:unimplemented
+	77 exit
+
+:label_define0
+	1 xreturn0
+:label_define
+	enter
+	1 arg
+:label_define_loop
+	dup 0 1 - == &label_define0 branch
+	dup fetch_int
+	swap &pc address @ generate_jump drop
+	&label_define_loop jump
+
+:compile_number_0
+	0 0 xreturn1
+:compile_number_1
+	&pc address dup @ 1 var generate_constant swap =
+	get_next_token
+	1 0 xreturn1
+:compile_number
+	enter
+	1 vars
+	0 1 var=
+	&next_token address
+:compile_number_loop
+	dup 0 c[]
+	dup not &compile_number_1 branch
+	dup 48 < &compile_number_0 branch
+	dup 58 < not &compile_number_0 branch
+	1 var 10 * + 48 - 1 var=
+	1 +
+	&compile_number_loop jump
+
+:compile_local_symbol
+	enter
+	0 0 xreturn1
+
+:compile_global_symbol_0
+	0 1 - 1 var symbol.value=
+	1 1 var symbol.type=
+:compile_global_symbol_1
+	&pc address @
+	&pc address @ 0 generate_call &pc address =
+	dup 1 var symbol.value store_int
+	1 var symbol.value=
+	1 1 xreturn1
+:compile_global_symbol_2
+	&pc address dup @ 1 var symbol.value generate_call swap =
+	1 1 xreturn1
+:compile_global_symbol
+	enter
+	1 vars
+	&globals address 1 arg symbol_find 1 var=
+	1 var symbol.type 0 == &compile_global_symbol_0 branch
+	1 var symbol.type 1 == &compile_global_symbol_1 branch
+	1 var symbol.type 2 == &compile_global_symbol_2 branch
+	unimplemented
+
+:compile_word1
+	get_next_token
+	1 0 xreturn1
+:compile_word0
+	0 0 xreturn1
+:compile_word
+	enter
+	&next_token address is_symbol not &compile_word0 branch
+	&next_token address compile_local_symbol &compile_word1 branch
+	&next_token address compile_global_symbol &compile_word1 branch
+	&compile_word0 jump
+
+:compile_body_vector
+	'00 '00 '00 '00
+:compile_body
+	enter
+	2 arg 1 arg &compile_body_vector address @ call
+	2 xreturn1
+
+:compile_loop0
+	0 0 xreturn1
+:compile_loop
+	enter
+	1 vars # end
+	&token_ob address token not &compile_loop0 branch
+	0 1 - 1 var=
+	&pc address @ 1 var& compile_body
+	1 var label_define
+	&token_cb address token require
+	1 0 xreturn1
+
+:compile_if1
+	1 var &pc address @ generate_branch_false
+	1 2 xreturn1
+:compile_if0
+	0 2 xreturn1
+:compile_if
+	enter
+	2 vars
+	&token_if address token not &compile_if0 branch
+	&pc address @ 1 var=
+	&pc address dup @ 0 generate_branch_false swap =
+	2 arg 1 arg compile_body require
+	&token_fi address token &compile_if1 branch
+	&token_else address token require
+	&pc address @ 2 var=
+	&pc address dup @ 0 generate_jump swap =
+	1 var &pc address @ generate_branch_false
+	2 arg 1 arg compile_body require
+	&token_fi address token require
+	2 var &pc address @ generate_jump
+	1 2 xreturn1
+
+:compile_jump0
+	0 1 xreturn1
+
+:compile_break
+	enter
+	&token_break address token not &compile_jump0 branch
+	&pc address dup @ swap
+	dup @ 0 generate_jump swap =
+	dup 1 arg @ store_int
+	1 arg =
+	1 1 xreturn1
+
+:compile_continue
+	enter
+	&token_continue address token not &compile_jump0 branch
+	&pc address dup @ 1 arg generate_jump swap =
+	1 1 xreturn1
+
+:compile_until
+	enter
+	&token_until address token not &compile_jump0 branch
+	unimplemented
+
+:compile_while
+	enter
+	&token_while address token not &compile_jump0 branch
+	unimplemented
+
+:compile_jump1
+	1 2 xreturn1
+:compile_jump
+	enter
+	1 arg compile_break &compile_jump1 branch
+	2 arg compile_continue &compile_jump1 branch
+	1 arg compile_until &compile_jump1 branch
+	1 arg compile_while &compile_jump1 branch
+	0 2 xreturn1
+
+:compile_body_1_out
+	1 2 xreturn1
+:compile_body_1
+	enter
+	compile_number &compile_body_1_out branch
+	compile_word &compile_body_1_out branch
+	compile_loop &compile_body_1_out branch
+	2 arg 1 arg compile_if &compile_body_1_out branch
+	2 arg 1 arg compile_jump &compile_body_1_out branch
+	0 0 xreturn1
+
+:compile_body_f
+	enter
+:compile_body_loop
+	2 arg 1 arg compile_body_1 &compile_body_loop branch
+	1 2 xreturn1
+
+:compile_vars0
+	1 0 xreturn1
+:compile_vars
+	enter
+:compile_vars_loop
+	&token_var address token not &compile_vars0 branch
+	&next_token address is_symbol require
+	get_next_token
+	&compile_vars_loop jump
+
+:compile_define_proc_0_0
+	drop dup 2 swap symbol.type=
+	&pc address @ swap symbol.value=
+	1 xreturn0
+:compile_define_proc_0
+	dup 0 1 - swap symbol.value=
+:compile_define_proc_1
+	dup symbol.value
+:compile_define_proc_0_loop
+	dup 0 1 - == &compile_define_proc_0_0 branch
+	dup fetch_int swap
+	&pc address @ generate_call drop
+	&compile_define_proc_0_loop jump
+:compile_define_proc_2
+	32 exit # symbol redefined
+:compile_define_proc
+	enter
+	&globals address 1 arg symbol_find
+	dup symbol.type 0 == &compile_define_proc_0 branch
+	dup symbol.type 1 == &compile_define_proc_1 branch
+	dup symbol.type 2 == &compile_define_proc_2 branch
+	dup symbol.type 3 == &compile_define_proc_2 branch
+	unimplemented
+
+:compile_define_var_0
+	dup 3 swap symbol.type=
+	&pc address @ swap symbol.value=
+	1 xreturn0
+:compile_define_var
+	enter
+	&globals address 1 arg symbol_find
+	dup symbol.type 0 == &compile_define_var_0 branch
+	33 exit # symbol redefined
+
+:compile_args_name
+	enter
+	1 vars
+	&next_token address is_symbol require
+:compile_args_name_loop
+	&next_token address strdup 1 var= # FIXME
+	get_next_token
+	&next_token address is_symbol &compile_args_name_loop branch
+	1 var compile_define_proc
+	1 0 xreturn1
+
+:compile_procedure0
+	0 0 xreturn1
+:compile_procedure
+	enter
+	1 vars # end
+	&token_def address token not &compile_procedure0 branch
+	compile_args_name require
+	&pc address dup @ generate_proc_start swap =
+	&token_ob address token require
+	compile_vars require
+	0 1 - 1 var=
+	&pc address @ 1 var& compile_body require
+	1 var label_define
+	&pc address dup @ generate_proc_end swap =
+	&token_cb address token require
+	1 0 xreturn1
+
+:compile_hexdef1
+	&next_token address is_symbol require
+	&next_token address compile_define_proc
+	get_next_token
+	1 0 xreturn1
+:compile_hexdef2
+	&next_token address is_symbol require
+	&next_token address compile_define_var
+	get_next_token
+	1 0 xreturn1
+:compile_hexdef
+	enter
+	&token__def address token &compile_hexdef1 branch
+	&token__var address token &compile_hexdef2 branch
+	0 0 xreturn1
+
+:convert_hex0
+	0 1 -
+	1 xreturn1
+:convert_hex1
+	48 -
+	1 xreturn1
+:convert_hex2
+	87 -
+	1 xreturn1
+:convert_hex
+	enter
+	1 arg
+	dup 48 < &convert_hex0 branch
+	dup 58 < &convert_hex1 branch
+	dup 97 < &convert_hex0 branch
+	dup 103 < &convert_hex2 branch
+	&convert_hex0 jump
+
+:compile_hexbyte0
+	0 0 xreturn1
+:compile_hexbyte
+	enter
+	1 vars
+	&next_token address
+	dup 0 c[] 39 != &compile_hexbyte0 branch
+	dup 1 c[] convert_hex dup 0 1 - == &compile_hexbyte0 branch
+	1 var=
+	dup 2 c[] convert_hex dup 0 1 - == &compile_hexbyte0 branch
+	1 var 4 << + 1 var=
+	3 c[] 0 != &compile_hexbyte0 branch
+	&pc address dup @ 1 var emit dup @ 1 + swap =
+	get_next_token
+	1 0 xreturn1
+
+:compile_program_1_out
+	1 0 xreturn1
+:compile_program_1
+	enter
+	compile_procedure &compile_program_1_out branch
+	compile_hexdef &compile_program_1_out branch
+	compile_hexbyte &compile_program_1_out branch
+	0 0 xreturn1
+
+:compile_program
+	enter
+:compile_program_loop
+	compile_program_1 &compile_program_loop branch
+	1 0 xreturn1
+
+# program = (procedure | hexdef | hexbyte)*
+# global = ("_def" | "_var") symbol
+# hexbyte = /'[0-9a-f][0-9a-f]/
+# procedure = ("def" | "_def") args name "{" vars body "}"
+# args = symbol*
+# name = symbol
+# vars = "var" symbol
+# body = (number | word | loop | jump | if)*
+# number = /[0-9]+/
+# word = symbol
+# loop = "{" body "}"
+# jump = "break" | "continue" | "until" | "while"
+# if = "if" body "fi" | "if" body "else" body "fi"
+
+:main
+	enter
+
+	&compile_body_f address &compile_body_vector address =
+
+	get_next_token
+	compile_program require
+	eof require
+	dump
+	0 0 xreturn1
+
+# This row of NOPs is recognised by the start-up code
+'90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90 '90
+main exit

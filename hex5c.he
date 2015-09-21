@@ -1,0 +1,1622 @@
+#
+# HEX5 for Linux-i386-ELF
+#
+# Copyright (C) 2001, Edmund GRIMLEY EVANS <edmundo@rano.org>
+#
+
+###
+### ELF headers
+###
+
+# Elf32_Ehdr
+  '7f '45 '4c '46 '01 '01 '01	# e_ident
+  '00 '00 '00 '00 '00 '00 '00 '00 '00
+  '02 '00			# e_type
+  '03 '00			# e_machine
+  '01 '00 '00 '00		# e_version
+  '54 '80 '04 '08		# e_entry = 0x08048000 + _start
+  '34 '00 '00 '00		# e_phoff = len(ehdr)
+  '00 '00 '00 '00		# e_shoff
+  '00 '00 '00 '00		# e_flags
+  '34 '00			# e_ehsize = len(ehdr)
+  '20 '00			# e_phentsize = len(phdr)
+  '01 '00			# e_phnum
+  '00 '00			# e_shentsize
+  '00 '00			# e_shnum
+  '00 '00			# e_shstrndx
+
+# Elf32_Phdr
+  '01 '00 '00 '00		# p_type
+  '00 '00 '00 '00		# p_offset
+  '00 '80 '04 '08		# p_vaddr = 0x08048000
+  '00 '80 '04 '08		# p_paddr = 0x08048000
+  '00 '40 '00 '00	#FIXME	# p_filesz = len(ehdr) + len(phdr) + len(prog)
+  '00 '40 '00 '00	#FIXME	# p_memsz = len(ehdr) + len(phdr) + len(prog)
+  '07 '00 '00 '00		# p_flags
+  '00 '10 '00 '00		# p_align
+
+######################################################################
+
+# Enter here:
+
+def _start
+{
+	0 main exit
+}
+
+######################################################################
+
+###
+### Support for functions: arguments, variables, return values
+###
+
+_def xreturn0
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'c9			# leave
+	'58			# pop	%eax
+	'8d '24 '9c		# lea	(%esp,%ebx,4),%esp
+	'50			# push	%eax
+	'c3			# ret
+
+_def xreturn1
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'c9			# leave
+	'58			# pop	%eax
+	'8d '24 '9c		# lea	(%esp,%ebx,4),%esp
+	'51			# push	%ecx
+	'50			# push	%eax
+	'c3			# ret
+
+###
+### Stack manipulation
+###
+
+_def drop
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def swap
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'50			# push	%eax
+	'51			# push	%ecx
+	'ff 'e3			# jmp	*%ebx
+
+_def dup
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'50			# push	%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def twodup
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'51			# push	%ecx
+	'50			# push	%eax
+	'51			# push	%ecx
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def rot
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'5a			# pop	%edx
+	'51			# push	%ecx
+	'53			# push	%ebx
+	'52			# push	%edx
+	'50			# push	%eax
+	'c3
+
+_def pick
+	'8b '44 '24 '04		# mov	4(%esp),%eax
+	'01 'c0			# add	%eax,%eax
+	'01 'c0			# add	%eax,%eax
+	'8d '5c '24 '08		# lea	8(%esp),%ebx
+	'01 'd8			# add	%ebx,%eax
+	'8b '00			# mov	(%eax),%eax
+	'89 '44 '24 '04		# mov	%eax,4(%esp)
+	'c3			# ret
+
+###
+### Arithmetic
+###
+
+_def -
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'29 '04 '24		# sub	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+_def +
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'01 '04 '24		# add	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+_def bitand
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'21 '04 '24		# and	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+_def *
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'0f 'af '04 '24		# imul	(%esp),%eax
+	'89 '04 '24		# mov	%eax,(%esp)
+	'ff 'e3			# jmp	*%ebx
+
+_def <<
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'd3 'e0			# shl	%cl,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def >>
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'58			# pop	%eax
+	'd3 'f8			# sar	%cl,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+# Comparisons
+
+_def <
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '9c 'c0		# setl	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def <=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '9e 'c0		# setle	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def ==
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '94 'c0		# sete	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+_def !=
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'39 'c1			# cmp	%eax,%ecx
+	'0f '95 'c0		# setne	%al
+	'25 'ff '00 '00 '00	# and	$0xff,%eax
+	'50			# push	%eax
+	'ff 'e3			# jmp	*%ebx
+
+###
+### Memory access
+###
+
+_def @
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'8b '00			# mov	(%eax),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def =
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'89 '08			# mov	%ecx,(%eax)
+	'53			# push	%ebx
+	'c3			# ret
+
+_def c[]
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'0f 'be '04 '10		# movsbl (%eax,%edx,1),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def c[]=
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'59			# pop	%ecx
+	'88 '0c '10		# mov	%cl,(%eax,%edx,1)
+	'53			# push	%ebx
+	'c3			# ret
+
+_def c[]&
+	'5b			# pop	%ebx
+	'5a			# pop	%edx
+	'58			# pop	%eax
+	'8d '04 '10		# lea	(%eax,%edx,1),%eax
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+###
+### Flow of control
+###
+
+_def jump
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'01 'c3			# add	%eax,%ebx
+	'83 'eb '05		# sub	$5,%ebx
+	'53			# push	%ebx
+	'c3			# ret
+
+_def branch
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'59			# pop	%ecx
+	'85 'c9			# test	%ecx,%ecx
+	'75 '02			# jne	+2
+	'50			# push	%eax
+	'c3			# ret
+	'01 'c3			# add	%eax,%ebx
+	'83 'eb '05		# sub	$5,%ebx
+	'53			# push	%ebx
+	'c3			# ret
+
+_def call
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+######################################################################
+
+###
+### System calls
+###
+
+_def exit
+	'5b			# pop	%ebx
+	'5b			# pop	%ebx
+	'31 'c0			# xor	%eax,%eax
+	'40			# inc	%eax
+	'cd '80			# int	$0x80
+
+_def _brk
+	'58			# pop	%eax
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'b8 '2d '00 '00 '00	# mov	$0x45,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+_def getchar
+	'6a '00			# push	$0x0
+	'31 'db			# xor	%ebx,%ebx
+	'89 'e1			# mov	%esp,%ecx
+	'31 'd2			# xor	%edx,%edx
+	'42			# inc	%edx
+	'b8 '03 '00 '00 '00	# mov	$0x3,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'85 'c0			# test	%eax,%eax
+	'75 '01			# jne	+1
+	'4b			# dec	%ebx
+	'58			# pop	%eax
+	'53			# push	%ebx
+	'50			# push	%eax
+	'c3			# ret
+
+_def putchar
+	'31 'db			# xor	%ebx,%ebx
+	'43			# inc	%ebx
+	'8d '4c '24 '04		# lea	0x4(%esp,1),%ecx
+	'89 'da			# mov	%ebx,%edx
+	'b8 '04 '00 '00 '00	# mov	$0x4,%eax
+	'cd '80			# int	$0x80
+	'5b			# pop	%ebx
+	'58			# pop	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+def increment sbrk
+{
+	var pos
+
+	0 _brk pos=
+	pos increment + dup _brk == if
+		pos 1 xreturn1
+	fi
+	0 1 - 1 xreturn1
+}
+
+######################################################################
+
+###
+### Debugging
+###
+
+# A stackless implementation of exit(42), for debugging:
+# '31 'c0 '40 'b3 '2a 'cd '80
+
+def w outw
+{
+	w
+	dup putchar 8 >>
+	dup putchar 8 >>
+	dup putchar 8 >>
+	putchar
+	1 xreturn0
+}
+
+def outs
+{
+	3735928559 # 0xdeadbeef
+	outw outw outw outw
+	outw outw outw outw
+	outw outw outw outw
+	0 exit
+}
+
+######################################################################
+
+###
+### A bogus implementation of malloc, realloc, free
+###
+
+def wsize
+{
+	4 0 xreturn1
+}
+
+def size malloc
+{
+	size wsize + sbrk
+	dup size swap =
+	wsize + 1 xreturn1
+}
+
+def ptr size realloc
+{
+	var old_size
+	var new_ptr
+
+	ptr 0 == if
+		# just call malloc
+		size malloc 2 xreturn1
+	fi
+	ptr wsize - @ old_size=
+	size old_size <= if
+		# keep the same bit of memory
+		ptr 2 xreturn1
+	fi
+	size malloc new_ptr=
+	# copy old data to new memory
+	{
+		old_size 0 == if break fi
+		old_size 1 - old_size=
+		ptr old_size c[] new_ptr old_size c[]=
+		continue
+	}
+	new_ptr 2 xreturn1
+}
+
+def free
+{
+	# do nothing
+	1 xreturn0
+}
+
+######################################################################
+
+###
+### The program itself
+###
+
+def x not
+{
+	x if
+		0 1 xreturn1
+	else
+		1 1 xreturn1
+	fi
+}
+
+def a b cmp
+{
+	a b < if
+		0 1 - 2 xreturn1
+	fi
+	a b == if
+		0 2 xreturn1
+	fi
+	1 2 xreturn1
+}
+
+def p q strcmp
+{
+	var i
+	var r
+	0 i=
+	{
+		p i c[] q i c[] cmp r=
+		r if break fi
+		p i c[] not if break fi
+		i 1 + i=
+		continue
+	}
+	r 2 xreturn1
+}
+
+def s strlen
+{
+	var n
+	0 n=
+	{
+		s n c[] not if break fi
+		n 1 + n=
+		continue
+	}
+	n 1 xreturn1
+}
+
+def s strdup
+{
+	var n
+	var s1
+	0 n=
+	s strlen 1 + malloc s1=
+	{
+		s n c[] not if break fi
+		s n c[] s1 n c[]=
+		n 1 + n=
+		continue
+	}
+	s1 1 xreturn1
+}
+
+def s prints
+{
+	s
+	0
+	{
+		twodup c[] dup not if 1 xreturn0 fi
+		putchar
+		1 +
+		continue
+	}
+}
+
+###
+### Binary image
+###
+
+_def _var_address
+	'58			# pop	%eax
+	'83 'c0 '02		# add	$0x2,%eax
+	'c9			# leave
+	'5b			# pop	%ebx
+	'50			# push	%eax
+	'53			# push	%ebx
+	'c3			# ret
+
+var binary
+var binary_size
+var pc
+
+def out_of_memory
+{
+	123 exit
+}
+
+def addr data emit
+{
+	addr binary_size < not if
+		addr 1 + 1 << binary_size=
+		binary binary_size realloc binary=
+		binary not if
+			out_of_memory
+		fi
+	fi
+	data binary addr c[]=
+	2 xreturn0
+}
+
+def dump
+{
+	var i
+	0 i=
+	{
+		i pc == if break fi
+		binary i c[] putchar
+		i 1 + i=
+		continue
+	}
+	0 xreturn0
+}
+
+def pos n store_int
+{
+	n binary pos c[]& =
+	2 xreturn0
+}
+
+def pos fetch_int
+{
+	binary pos c[]& @
+	1 xreturn1
+}
+
+###
+### Lexical analysis
+###
+
+def token_eof
+	{ _var_address }
+	'00
+def token_def
+	{ _var_address }
+	'64 '65 '66 '00
+def token__def
+	{ _var_address }
+	'5f '64 '65 '66 '00
+def token_ob
+	{ _var_address }
+	'7b '00
+def token_cb
+	{ _var_address }
+	'7d '00
+def token_var
+	{ _var_address }
+	'76 '61 '72 '00
+def token_if
+	{ _var_address }
+	'69 '66 '00
+def token_else
+	{ _var_address }
+	'65 '6c '73 '65 '00
+def token_fi
+	{ _var_address }
+	'66 '69 '00
+def token_break
+	{ _var_address }
+	'62 '72 '65 '61 '6b '00
+def token_continue
+	{ _var_address }
+	'63 '6f '6e '74 '69 '6e '75 '65 '00
+def token_until
+	{ _var_address }
+	'75 '6e '74 '69 '6c '00
+def token_while
+	{ _var_address }
+	'77 '68 '69 '6c '65 '00
+def token_string
+	{ _var_address }
+	'73 '74 '72 '69 '6e '67 '00
+def token_return0
+	{ _var_address }
+	'72 '65 '74 '75 '72 '6e '30 '00
+def token_return1
+	{ _var_address }
+	'72 '65 '74 '75 '72 '6e '31 '00
+
+def s is_symbol
+{
+	s token_eof strcmp not if 0 1 xreturn1 fi
+	s token_def strcmp not if 0 1 xreturn1 fi
+	s token_ob strcmp not if 0 1 xreturn1 fi
+	s token_cb strcmp not if 0 1 xreturn1 fi
+	s token_var strcmp not if 0 1 xreturn1 fi
+	s token_if strcmp not if 0 1 xreturn1 fi
+	s token_else strcmp not if 0 1 xreturn1 fi
+	s token_fi strcmp not if 0 1 xreturn1 fi
+	s token_break strcmp not if 0 1 xreturn1 fi
+	s token_continue strcmp not if 0 1 xreturn1 fi
+	s token_until strcmp not if 0 1 xreturn1 fi
+	s token_while strcmp not if 0 1 xreturn1 fi
+	s token_return0 strcmp not if 0 1 xreturn1 fi
+	s token_return1 strcmp not if 0 1 xreturn1 fi
+	1 1 xreturn1
+}
+
+def next_token
+	{ _var_address }
+	# A silly fixed-length buffer
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+	'00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00 '00
+
+# comment = /#[^\n]*\n?/
+# space = /\s/
+# string_literal = /"([^"]|\\.)*"/
+# token = /\S+/
+
+def get_next_token
+{
+	var c
+	var p
+
+	getchar c=
+	c 0 1 - == if
+		0 next_token 0 c[]=
+		0 xreturn0
+	fi
+	c 32 <= if
+		continue
+	fi
+	c 35 == if
+		{
+			getchar c=
+			c 10 == if break fi
+			c 0 1 - == if
+				0 next_token 0 c[]=
+				0 xreturn0
+			fi
+			continue
+		}
+		continue
+	fi
+
+	c 34 == if
+		next_token p=
+		{
+			c p 0 c[]=
+			p 1 + p=
+			getchar c=
+			c 34 == if
+				c p 0 c[]=
+				p 1 + p=
+				break
+			fi
+			c 92 == if
+				getchar c=
+			fi
+			c 0 1 - == if
+				96 exit # unterminated string
+			fi
+			continue
+		}
+	else
+		next_token p=
+		{
+			c p 0 c[]=
+			p 1 + p=
+			getchar c=
+			c 32 <= not if continue fi
+		}
+	fi
+	0 p 0 c[]=
+	0 xreturn0
+}
+
+def eof
+{
+	next_token 0 c[] 0 == 0 xreturn1
+}
+
+def s token
+{
+	next_token s strcmp if 0 1 xreturn1 fi
+	get_next_token
+	1 1 xreturn1
+}
+
+def syntax_error
+{
+	19 exit
+}
+
+def x require
+{
+	x not if syntax_error fi
+	1 xreturn0
+}
+
+###
+### Symbol tables
+###
+
+var globals
+var locals
+var local_args_num
+
+def symbol.sizeof
+{
+	wsize 4 * 0 xreturn1
+}
+
+def sym symbol.name&
+{
+	sym 1 xreturn1
+}
+
+def sym symbol.type&
+{
+	sym wsize + 1 xreturn1
+}
+
+def sym symbol.value&
+{
+	sym wsize 2 * + 1 xreturn1
+}
+
+def sym symbol.next&
+{
+	sym wsize 3 * + 1 xreturn1
+}
+
+def sym symbol.type
+{
+	sym symbol.type& @ 1 xreturn1
+}
+
+def type sym symbol.type=
+{
+	type sym symbol.type& = 2 xreturn0
+}
+
+def sym symbol.value
+{
+	sym symbol.value& @ 1 xreturn1
+}
+
+def value sym symbol.value=
+{
+	value sym symbol.value& = 2 xreturn0
+}
+
+def table s symbol_found
+{
+	var t
+	table t=
+	{
+		t @ not if
+			0 2 xreturn1
+		fi
+		t @ symbol.name& @ s strcmp not if
+			t @ 2 xreturn1
+		fi
+		t @ symbol.next& t=
+		continue
+	}
+}
+
+def table s symbol_find
+{
+	var t
+	table t=
+	{
+		t @ not if
+			symbol.sizeof malloc
+			dup t =
+			dup symbol.name& s strdup swap =
+			dup symbol.type& 0 swap =
+			dup symbol.value& 0 swap =
+			dup symbol.next& 0 swap =
+			2 xreturn1
+		fi
+		t @ symbol.name& @ s strcmp not if
+			t @ 2 xreturn1
+		fi
+		t @ symbol.next& t=
+		continue
+	}
+}
+
+def table symbol_table_clear
+{
+	# FIXME: leaks
+	0 table =
+}
+
+
+###
+### Code generation
+###
+
+def a n generate_int
+{
+	# little-endian
+	a n 255 bitand emit
+	a 1 + n 8 >> 255 bitand emit
+	a 2 + n 16 >> 255 bitand emit
+	a 3 + n 24 >> 255 bitand emit
+	2 xreturn0
+}
+
+def a n generate_call
+{
+	a 232 emit			# 0xe8 = call N
+	a 1 + n a - 5 - generate_int
+	a 5 + 2 xreturn1
+}
+
+def a n generate_jump
+{
+	a 233 emit			# 0xe9 = jmp N
+	a 1 + n a - 5 - generate_int
+	a 5 + 2 xreturn1
+}
+
+def a n generate_branch_false
+{
+	a 88 emit			# 0x58 = pop %eax
+	a 1 + 133 emit
+	a 2 + 192 emit			# 0x85 0xc0 = test %eax,%eax
+	a 3 + 15 emit
+	a 4 + 132 emit			# 0x0f 0x84 = je N
+	a 5 + n a - 9 - generate_int
+	a 9 + 2 xreturn1
+}
+
+def a n generate_branch_true # unused
+{
+	a 88 emit			# 0x58 = pop %eax
+	a 1 + 133 emit
+	a 2 + 192 emit			# 0x85 0xc0 = test %eax,%eax
+	a 3 + 15 emit
+	a 4 + 133 emit			# 0x0f 0x85 = jne N
+	a 5 + n a - 9 - generate_int
+	a 9 + 2 xreturn1
+}
+
+def a n generate_constant
+{
+	a 104 emit			# 0x68 = push N
+	a 1 + n generate_int
+	a 5 + 2 xreturn1
+}
+
+def a generate_proc_start
+{
+	a 85 emit			# 0x55 = push %ebp
+	a 1 + 137 emit
+	a 2 + 229 emit			# 0x89 0xe5 = mov %esp,%ebp
+	a 3 + 1 xreturn1
+}
+
+def a generate_proc_end
+{
+	a 201 emit			# 0xc9 = leave
+	a 1 + 195 emit			# 0xc3 = ret
+	a 2 + 1 xreturn1
+}
+
+def a n generate_arg_load
+{
+	a 139 emit
+	a 1 + 133 emit			# 0x8b 0x85 = mov N(%ebp),%eax
+	a 2 + 2 local_args_num + n - 4 * generate_int
+	a 6 + 80 emit			# 0x50 = push %eax
+	a 7 + 2 xreturn1
+}
+
+def a n generate_stack_frame
+{
+	n not if
+		a 2 xreturn1
+	fi
+	a 129 emit
+	a 1 + 236 emit			# 0x81 0xec = sub $N,%esp
+	a 2 + n 4 * generate_int
+	a 6 + 2 xreturn1
+}
+
+def a n generate_var_load
+{
+	a 139 emit
+	a 1 + 133 emit			# 0x8b 0x85 = mov N(%ebp),%eax
+	a 2 + 0 n - 4 * generate_int
+	a 6 + 80 emit			# 0x50 = push %eax
+	a 7 + 2 xreturn1
+}
+
+def a n generate_var_store
+{
+	a 88 emit			# 0x58 = pop %eax
+	a 1 + 137 emit
+	a 2 + 133 emit			# 0x89 0x85 = mov %eax,N(%ebp)
+	a 3 + 0 n - 4 * generate_int
+	a 7 + 2 xreturn1
+}
+
+def a n generate_var_addr
+{
+	a 141 emit
+	a 1 + 133 emit			# 0x8d 0x85 = lea N(%ebp),%eax
+	a 2 + 0 n - 4 * generate_int
+	a 6 + 80 emit			# 0x50 = push %eax
+	a 7 + 2 xreturn1
+}
+
+def a generate_global
+{
+	a 0 generate_int
+	a 4 + 1 xreturn1
+}
+
+def a n generate_global_load
+{
+	a 232 emit			# 0xe8 = call N
+	a 1 + 0 generate_int
+	a 5 + 88 emit			# 0x58 = pop %eax
+	a 6 + 139 emit
+	a 7 + 128 emit			# 0x8b 0x80 = mov N(%eax),%eax
+	a 8 + n a - 5 - generate_int
+	a 12 + 80 emit			# 0x50 = push %eax
+	a 13 + 2 xreturn1
+}
+
+def a n generate_global_store
+{
+	a 232 emit			# 0xe8 = call N
+	a 1 + 0 generate_int
+	a 5 + 88 emit			# 0x58 = pop %eax
+	a 6 + 91 emit			# 0x5b = pop %ebx
+	a 7 + 137 emit
+	a 8 + 152 emit			# 0x89 0x98 = mov %ebx,N(%eax)
+	a 9 + n a - 5 - generate_int
+	a 13 + 2 xreturn1
+}
+
+def a n generate_global_addr
+{
+	a 232 emit			# 0xe8 = call N
+	a 1 + 0 generate_int
+	a 5 + 88 emit			# 0x58 = pop %eax
+	a 6 + 141 emit
+	a 7 + 128 emit			# 0x8d 0x80 = lea N(%eax),%eax
+	a 8 + n a - 5 - generate_int
+	a 12 + 80 emit			# 0x50 = push %eax
+	a 13 + 2 xreturn1
+}
+
+def a generate_skip_jump_if_false
+{
+	a 88 emit			# 0x58 = pop %eax
+	a 1 + 133 emit
+	a 2 + 192 emit			# 0x85 0xc0 = test %eax,%eax
+	a 3 + 116 emit
+	a 4 + 5 emit			# 0x74 0x05 = je +5
+	a 5 + 1 xreturn1
+}
+
+def a generate_skip_jump_if_true
+{
+	a 88 emit			# 0x58 = pop %eax
+	a 1 + 133 emit
+	a 2 + 192 emit			# 0x85 0xc0 = test %eax,%eax
+	a 3 + 117 emit
+	a 4 + 5 emit			# 0x75 0x05 = jne +5
+	a 5 + 1 xreturn1
+}
+
+def a n generate_return0
+{
+	a 201 emit			# 0xc9 = leave
+	a 1 + 91 emit			# 0x5b = pop %ebx
+	a 2 + 129 emit
+	a 3 + 196 emit			# 0x81 0xc4 = add $N,%esp
+	a 4 + n 4 * generate_int
+	a 8 + 83 emit			# 0x53 = push %ebx
+	a 9 + 195 emit			# 0xc3 = ret
+	a 10 + 2 xreturn1
+}
+
+def a n generate_return1
+{
+	a 88 emit			# 0x58 = pop %eax
+	a 1 + 201 emit			# 0xc9 = leave
+	a 2 + 91 emit			# 0x5b = pop %ebx
+	a 3 + 129 emit
+	a 4 + 196 emit			# 0x81 0xc4 = add $N,%esp
+	a 5 + n 4 * generate_int
+	a 9 + 80 emit			# 0x50 = push %eax
+	a 10 + 83 emit			# 0x53 = push %ebx
+	a 11 + 195 emit			# 0xc3 = ret
+	a 12 + 2 xreturn1
+}
+
+###
+### Parser
+###
+
+def unimplemented
+{
+	77 exit
+}
+
+def end label_define
+{
+	end
+	{
+		dup 0 1 - == if 1 xreturn0 fi
+		dup fetch_int
+		swap pc generate_jump drop
+		continue
+	}
+}
+
+def compile_number
+{
+	var n
+	var p
+	var c
+	var neg
+
+	next_token p=
+	p 0 c[] 45 == if
+		1 neg=
+		p 1 + p=
+	else
+		0 neg=
+	fi
+
+	p 0 c[] c=
+	c 48 < if
+		0 0 xreturn1
+	fi
+	c 58 < not if
+		0 0 xreturn1
+	fi
+	c 48 - n=
+	{
+		p 1 + p=
+		p 0 c[] c=
+		c not if
+			break
+		fi
+		c 48 < if
+			0 0 xreturn1
+		fi
+		c 58 < not if
+			0 0 xreturn1
+		fi
+		n 10 * c + 48 - n=
+		continue
+	}
+
+	neg if
+		0 n - n=
+	fi
+	pc n generate_constant pc=
+	get_next_token
+	1 0 xreturn1
+}
+
+def s compile_local_symbol
+{
+	var sym
+	var c
+
+	locals& s symbol_found sym=
+	sym if
+		sym symbol.type
+		dup 0 == if
+			0 0 xreturn1
+		fi
+		dup 1 == if
+			pc sym symbol.value generate_arg_load pc=
+			1 0 xreturn1
+		fi
+		dup 2 == if
+			pc sym symbol.value generate_var_load pc=
+			1 0 xreturn1
+		fi
+		97 exit # internal error
+	fi
+
+	s s strlen 1 - c[] c=
+	c 61 != if # '='
+		c 38 != if # '&'
+			0 1 xreturn1
+		fi
+	fi
+
+	# Chop and restore the last char - what a hack
+	0 s s strlen 1 - c[]=
+	locals& s symbol_found sym=
+	c s s strlen c[]=
+
+	sym if
+		sym symbol.type
+		dup 1 == if
+			101 exit # arg_addr or arg_store
+		fi
+		dup 2 == if
+			c 61 == if
+			    pc sym symbol.value generate_var_store pc=
+			else
+			    pc sym symbol.value generate_var_addr pc=
+			fi
+			1 0 xreturn1
+		fi
+	fi
+
+	0 1 xreturn1
+}
+
+# FIXME: The following function should be merged with the previous one.
+
+def s compile_global_symbol
+{
+	var sym
+	var c
+
+	globals& s symbol_found sym=
+	sym if
+		sym symbol.type 1 == if
+			pc
+			pc 0 generate_call pc=
+			dup sym symbol.value store_int
+			sym symbol.value=
+			1 1 xreturn1
+		fi
+		sym symbol.type 2 == if
+			pc sym symbol.value generate_call pc=
+			1 1 xreturn1
+		fi
+		sym symbol.type 3 == if
+			pc sym symbol.value generate_global_load pc=
+			1 1 xreturn1
+		fi
+		sym symbol.type 4 == if
+			pc sym symbol.value generate_global_addr pc=
+			1 1 xreturn1
+		fi
+		unimplemented
+	fi
+
+	s s strlen 1 - c[] c=
+	c 61 != if # '='
+		c 38 != if # '&'
+			globals& s symbol_find sym=
+			0 1 - sym symbol.value=
+			1 sym symbol.type=
+			s compile_global_symbol
+			1 1 xreturn1
+		fi
+	fi
+
+	# Chop and restore the last char - what a hack
+	0 s s strlen 1 - c[]=
+	globals& s symbol_found sym=
+	c s s strlen c[]=
+
+	sym if
+		sym symbol.type
+		dup 3 == if
+			c 61 == if
+			    pc sym symbol.value generate_global_store pc=
+			else
+			    pc sym symbol.value generate_global_addr pc=
+			fi
+			1 1 xreturn1
+		fi
+		unimplemented
+	fi
+
+	globals& s symbol_find sym=
+	0 1 - sym symbol.value=
+	1 sym symbol.type=
+	s compile_global_symbol
+	1 1 xreturn1
+}
+
+def compile_word
+{
+	next_token is_symbol not if
+		0 0 xreturn1
+	fi
+	next_token compile_local_symbol if
+		get_next_token
+		1 0 xreturn1
+	fi
+	next_token compile_global_symbol if
+		get_next_token
+		1 0 xreturn1
+	fi
+	0 0 xreturn1
+}
+
+def compile_loop
+{
+	var end
+
+	token_ob token not if
+		0 0 xreturn1
+	fi
+	0 1 - end=
+	pc end& compile_body
+	end label_define
+	token_cb token require
+	1 0 xreturn1
+}
+
+def begin end compile_if
+{
+	var pos1
+	var pos2
+
+	token_if token not if
+		0 2 xreturn1
+	fi
+	pc pos1=
+	pos1 0 generate_branch_false pc=
+	begin end compile_body require
+	token_fi token if
+		pos1 pc generate_branch_false
+		1 2 xreturn1
+	fi
+	token_else token require
+	pc pos2=
+	pos2 0 generate_jump pc=
+	pos1 pc generate_branch_false
+	begin end compile_body require
+	token_fi token require
+	pos2 pc generate_jump
+	1 2 xreturn1
+}
+
+def end compile_break
+{
+	token_break token not if
+		0 1 xreturn1
+	fi
+	pc 0 generate_jump
+		pc end @ store_int
+		pc end =
+	pc=
+	1 1 xreturn1
+}
+
+def begin compile_continue
+{
+	token_continue token not if
+		0 1 xreturn1
+	fi
+	pc begin generate_jump pc=
+	1 1 xreturn1
+}
+
+def end compile_until
+{
+	token_until token not if
+		0 1 xreturn1
+	fi
+	pc generate_skip_jump_if_false pc=
+	pc 0 generate_jump
+		pc end @ store_int
+		pc end =
+	pc=
+	1 1 xreturn1
+}
+
+def end compile_while
+{
+	token_while token not if
+		0 1 xreturn1
+	fi
+	pc generate_skip_jump_if_true pc=
+	pc 0 generate_jump
+		pc end @ store_int
+		pc end =
+	pc=
+	1 1 xreturn1
+}
+
+def begin end compile_jump
+{
+	{
+		end compile_break if break fi
+		begin compile_continue if break fi
+		end compile_until if break fi
+		end compile_while if break fi
+		0 2 xreturn1
+	}
+	1 2 xreturn1
+}
+
+def compile_return
+{
+	token_return0 token if
+		pc local_args_num generate_return0 pc=
+		1 0 xreturn1
+	fi
+	token_return1 token if
+		pc local_args_num generate_return1 pc=
+		1 0 xreturn1
+	fi
+	0 0 xreturn1
+}
+
+def begin end compile_body
+{
+	compile_number if continue fi
+	compile_word if continue fi
+	compile_loop if continue fi
+	begin end compile_if if continue fi
+	begin end compile_jump if continue fi
+	compile_return if continue fi
+	1 2 xreturn1
+}
+
+def compile_vars
+{
+	var count
+	var sym
+
+	0 count=
+	{
+		token_var token not if break fi
+		next_token is_symbol require
+		locals& next_token symbol_find sym=
+		sym symbol.type if
+			54 exit # variable redefined
+		fi
+		2 sym symbol.type=
+		count 1 + count=
+		count sym symbol.value=
+		get_next_token
+		continue
+	}
+	pc count generate_stack_frame pc=
+	1 0 xreturn1
+}
+
+def sym compile_define_proc_1
+{
+	sym
+	dup symbol.value
+	{
+		dup 0 1 - == if
+			drop dup 2 swap symbol.type=
+			pc swap symbol.value=
+			1 xreturn0
+		fi
+		dup fetch_int swap
+		pc generate_call drop
+		continue
+	}
+}
+
+def s compile_define_proc
+{
+	globals& s symbol_find
+	dup symbol.type 0 == if
+		dup 0 1 - swap symbol.value=
+		compile_define_proc_1
+		1 xreturn0
+	fi
+	dup symbol.type 1 == if
+		compile_define_proc_1
+		1 xreturn0
+	fi
+	dup symbol.type 2 == if
+		32 exit # symbol redefined
+	fi
+	dup symbol.type 3 == if
+		32 exit # symbol redefined
+	fi
+	unimplemented
+}
+
+def s compile_define_var
+{
+	globals& s symbol_find
+	dup symbol.type 0 == if
+		dup 3 swap symbol.type=
+		pc swap symbol.value=
+		pc generate_global pc=
+		1 xreturn0
+	fi
+	33 exit # symbol redefined
+}
+
+# FIXME: combine these functions?
+
+def s compile_define_string
+{
+	globals& s symbol_find
+	dup symbol.type 0 == if
+		dup 4 swap symbol.type=
+		pc swap symbol.value=
+		1 xreturn0
+	fi
+	33 exit # symbol redefined
+}
+
+def compile_args_name
+{
+	var count
+	var sym
+
+	0 count=
+	next_token is_symbol require
+	{
+		next_token is_symbol not if break fi
+		locals& next_token symbol_find sym=
+		sym symbol.type if
+			34 exit # local symbol reused
+		fi
+		1 sym symbol.type=
+		count 1 + count=
+		count sym symbol.value=
+		get_next_token
+		continue
+	}
+
+	# The last one was the procedure name, not an argument!
+	0 sym symbol.type=
+	sym symbol.name& @ compile_define_proc
+
+	count 1 - local_args_num=
+	1 0 xreturn1
+}
+
+def compile_procedure
+{
+	var end
+
+	token_def token not if 0 0 xreturn1 fi
+	compile_args_name require
+	pc generate_proc_start pc=
+	token_ob token require
+	compile_vars require
+	0 1 - end=
+	pc end& compile_body require
+	end label_define
+	pc generate_proc_end pc=
+	token_cb token require
+	locals& symbol_table_clear
+	1 0 xreturn1
+}
+
+def compile_string_literal
+{
+	var p
+	next_token p=
+	p 0 c[] 34 != if
+		0 0 xreturn1
+	fi
+	{
+		p 1 + p=
+		p 0 c[]
+		dup require
+		dup 34 == if
+			p 1 c[] 0 == require
+			pc 0 emit
+			pc 1 + pc=
+			break
+		fi
+		dup 92 == if
+			p 1 c[] require
+			pc p 1 c[] emit
+			pc 1 + pc=
+			p 1 + p=
+		fi
+		pc swap emit
+		pc 1 + pc=
+		continue
+	}
+	get_next_token
+	1 0 xreturn1
+}
+
+def compile_global
+{
+	token_var token if
+		next_token is_symbol require
+		next_token compile_define_var
+		get_next_token
+		1 0 xreturn1
+	fi
+	token_string token if
+		next_token is_symbol require
+		next_token compile_define_string
+		get_next_token
+		compile_string_literal require
+		1 0 xreturn1
+	fi
+	0 0 xreturn1
+}
+
+def character convert_hex
+{
+	character
+	dup 48 < if 0 1 - 1 xreturn1 fi
+	dup 58 < if 48 - 1 xreturn1 fi
+	dup 97 < if 0 1 - 1 xreturn1 fi
+	dup 103 < if 87 - 1 xreturn1 fi
+	0 1 - 1 xreturn1
+}
+
+def compile_hexbyte
+{
+	var n
+
+	next_token
+	dup 0 c[] 39 != if 0 0 xreturn1 fi
+	dup 1 c[] convert_hex dup 0 1 - == if 0 0 xreturn1 fi
+	n=
+	dup 2 c[] convert_hex dup 0 1 - == if 0 0 xreturn1 fi
+	n 4 << + n=
+	3 c[] 0 != if 0 0 xreturn1 fi
+	pc n emit pc 1 + pc=
+	get_next_token
+	1 0 xreturn1
+}
+
+def compile_hexitem
+{
+	compile_hexbyte if
+		1 0 xreturn1
+	fi
+	token__def token if
+		next_token is_symbol require
+		next_token compile_define_proc
+		get_next_token
+		1 0 xreturn1
+	fi
+	0 0 xreturn1
+}
+
+def compile_program
+{
+	compile_hexitem if continue fi
+	compile_global if continue fi
+	compile_procedure if continue fi
+	1 0 xreturn1
+}
+
+# program = (hexitem | global | procedure)*
+# hexitem = hexbyte |  "_def" symbol
+# hexbyte = /'[0-9a-f][0-9a-f]/
+# global = "var" symbol | "string" symbol string_literal
+# string_literal = /"([^"]|\\.)*"/
+# procedure = "def" args name "{" vars body "}"
+# args = symbol*
+# name = symbol
+# vars = "var" symbol
+# body = (number | word | loop | jump | if | return0 | return1)*
+# number = /-?[0-9]+/
+# word = symbol
+# loop = "{" body "}"
+# jump = "break" | "continue" | "until" | "while"
+# if = "if" body "fi" | "if" body "else" body "fi"
+# symbol = /.+/ except ...
+
+def main
+{
+	get_next_token
+	compile_program require
+	eof require
+	dump
+	0 0 xreturn1
+}

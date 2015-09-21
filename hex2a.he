@@ -1,0 +1,160 @@
+#
+# HEX2 for Linux-i386-ELF
+#
+# Copyright (C) 2001, Edmund GRIMLEY EVANS <edmundo@rano.org>
+#
+
+# Elf32_Ehdr
+  7f 45 4c 46 01 01 01	# e_ident
+  00 00 00 00 00 00 00 00 00
+  02 00			# e_type
+  03 00			# e_machine
+  01 00 00 00		# e_version
+  25 82 04 08	#!	# e_entry = 0x08048000 + len(ehdr) + len(phdr)
+  34 00 00 00		# e_phoff = len(ehdr)
+  00 00 00 00		# e_shoff
+  00 00 00 00		# e_flags
+  34 00			# e_ehsize = len(ehdr)
+  20 00			# e_phentsize = len(phdr)
+  01 00			# e_phnum
+  00 00			# e_shentsize
+  00 00			# e_shnum
+  00 00			# e_shstrndx
+
+# Elf32_Phdr
+  01 00 00 00		# p_type
+  00 00 00 00		# p_offset
+  00 80 04 08		# p_vaddr = 0x08048000
+  00 80 04 08		# p_paddr = 0x08048000
+  44 02 00 00	#!	# p_filesz = len(ehdr) + len(phdr) + len(prog)
+  44 02 00 00	#!	# p_memsz = len(ehdr) + len(phdr) + len(prog)
+  07 00 00 00		# p_flags
+  00 10 00 00		# p_align
+
+# A stackless implementation of exit(42), for debugging:
+# 31 c0 40 b3 2a cd 80
+
+# pos: # 0x08048054
+	00 00 00 00
+# label: # 0x08048058
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	00 00 00
+
+# getchar:
+	6a 00			# push	$0x0
+	31 db			# xor	%ebx,%ebx
+	89 e1			# mov	%esp,%ecx
+	89 da			# mov	%ebx,%edx
+	42			# inc	%edx
+	b8 03 00 00 00		# mov	$0x3,%eax
+	cd 80			# int	$0x80
+	85 c0			# test	%eax,%eax
+	74 02			# je	exit
+	58			# pop	%eax
+	c3			# ret
+
+# exit:
+	31 c0			# xor	%eax,%eax
+	89 c3			# mov	%eax,%ebx
+	40			# inc	%eax
+	cd 80			# int	$0x80
+
+# gethex:
+	e8 de ff ff ff		# call	getchar
+	83 f8 20		# cmp	$0x20,%eax
+	7e f6			# jle	gethex
+	83 f8 23		# cmp	$0x23,%eax
+	75 0c			# jne	.l1
+
+# .loop:
+	e8 cf ff ff ff		# call	getchar
+	83 f8 0a		# cmp	$0xa,%eax
+	75 f6			# jne	.loop
+	eb e5			# jmp	gethex
+
+# .l1:
+	83 f8 2e		# cmp	$0x2e,%eax
+	75 19			# jne	.l2
+	e8 be ff ff ff		# call	getchar
+	25 ff 00 00 00		# and	$0xff,%eax
+	05 58 80 04 08		# add	label,%eax
+	8b 1d 54 80 04 08	# mov	pos,%ebx
+	89 18			# mov	%ebx,(%eax)
+	eb c7			# jmp	gethex
+
+# .l2:
+	83 f8 30		# cmp	$0x30,%eax
+	7c 09			# jl	.l3
+	83 f8 3a		# cmp	$0x3a,%eax
+	7d 04			# jge	.l3
+	83 e8 30		# sub	$0x30,%eax
+	c3			# ret
+
+# .l3:
+	83 f8 61		# cmp	$0x61,%eax
+	7c 09			# jl	.l4
+	83 f8 67		# cmp	$0x67,%eax
+	7d 04			# jge	.l4
+	83 e8 57		# sub	$0x57,%eax
+	c3			# ret
+
+# .l4:
+	25 ff 00 00 00		# and	$0xff,%eax
+	05 58 80 04 08		# add	label,%eax
+	8b 18			# mov	(%eax),%ebx
+	a1 54 80 04 08		# mov	pos,%eax
+	83 c0 04		# add	$0x4,%eax
+	a3 54 80 04 08		# mov	%eax,pos
+	29 c3			# sub	%eax,%ebx
+	89 d8			# mov	%ebx,%eax
+	50			# push	%eax
+	e8 24 00 00 00		# call	putchar
+	58			# pop	%eax
+	c1 f8 08		# sar	$0x8,%eax
+	50			# push	%eax
+	e8 1a 00 00 00		# call	putchar
+	58			# pop	%eax
+	c1 f8 10		# sar	$0x10,%eax
+	50			# push	%eax
+	e8 10 00 00 00		# call	putchar
+	58			# pop	%eax
+	c1 f8 18		# sar	$0x18,%eax
+	50			# push	%eax
+	e8 06 00 00 00		# call	putchar
+	58			# pop	%eax
+	e9 64 ff ff ff		# jmp	gethex
+
+# putchar:
+	31 db			# xor	%ebx,%ebx
+	43			# inc	%ebx
+	8d 4c 24 04		# lea	0x4(%esp,1),%ecx
+	89 da			# mov	%ebx,%edx
+	b8 04 00 00 00		# mov	$0x4,%eax
+	cd 80			# int	$0x80
+	c3			# ret
+
+# _start:
+	e8 4e ff ff ff		# call	gethex
+	c1 e0 04		# shl	$0x4,%eax
+	50			# push	%eax
+	e8 45 ff ff ff		# call	gethex
+	01 04 24		# add	%eax,(%esp,1)
+	ff 05 54 80 04 08	# incl	0x0
+	e8 d3 ff ff ff		# call	putchar
+	58			# pop	%eax
+	eb e1			# jmp	_start
