@@ -1,6 +1,7 @@
   BITS 32
 
                 org     0x08048000
+  origin        equ     0x08048000
 
   ehdr:                                                 ; Elf32_Ehdr
                 db      0x7F, "ELF", 1, 1, 1, 0         ;   e_ident
@@ -24,8 +25,8 @@
   phdr:                                                 ; Elf32_Phdr
                 dd      1                               ;   p_type
                 dd      0                               ;   p_offset
-                dd      $$                              ;   p_vaddr
-                dd      $$                              ;   p_paddr
+                dd      origin                          ;   p_vaddr
+                dd      origin                          ;   p_paddr
                 dd      filesize                        ;   p_filesz
                 dd      filesize                        ;   p_memsz
                 dd      5                               ;   p_flags
