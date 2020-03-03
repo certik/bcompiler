@@ -4,7 +4,7 @@
 
   ehdr:                                                 ; Elf32_Ehdr
                 db      0x7F, "ELF", 1, 1, 1, 0         ;   e_ident
-        times 8 db      0
+                db      0, 0, 0, 0, 0, 0, 0, 0
                 dw      2                               ;   e_type
                 dw      3                               ;   e_machine
                 dd      1                               ;   e_version
