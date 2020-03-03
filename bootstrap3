@@ -7,3 +7,5 @@ diff hex1 hex1.x
 
 # List codes:
 nasm -f bin hex1.asm -l hex1.lst
+python gen2.py > hex1.he.gen
+diff hex1.he hex1.he.gen
