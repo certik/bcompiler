@@ -1,105 +1,93 @@
-#
-# HEX1 for Linux-i386-ELF
-#
-# Copyright (C) 2001, Edmund GRIMLEY EVANS <edmundo@rano.org>
-#
+# BITS 32
 
-# Elf32_Ehdr
-  7f 45 4c 46 01 01 01	# e_ident
-  00 00 00 00 00 00 00 00 00
-  02 00			# e_type
-  03 00			# e_machine
-  01 00 00 00		# e_version
-  54 80 04 08		# e_entry = 0x08048000 + len(ehdr) + len(phdr)
-  34 00 00 00		# e_phoff = len(ehdr)
-  00 00 00 00		# e_shoff
-  00 00 00 00		# e_flags
-  34 00			# e_ehsize = len(ehdr)
-  20 00			# e_phentsize = len(phdr)
-  01 00			# e_phnum
-  00 00			# e_shentsize
-  00 00			# e_shnum
-  00 00			# e_shstrndx
+# origin equ 0x08048000
 
-# Elf32_Phdr
-  01 00 00 00		# p_type
-  00 00 00 00		# p_offset
-  00 80 04 08		# p_vaddr = 0x08048000
-  00 80 04 08		# p_paddr = 0x08048000
-  bf 00 00 00	#!	# p_filesz = len(ehdr) + len(phdr) + len(prog)
-  bf 00 00 00	#!	# p_memsz = len(ehdr) + len(phdr) + len(prog)
-  05 00 00 00		# p_flags
-  00 10 00 00		# p_align
+# ehdr:                       ; Elf32_Ehdr
+    7f 45 4c 46 01 01 01 #     db 0x7F, "ELF", 1, 1, 1 ; e_ident
+    00 00 00 00 00 00 00 00 00 #     db 0, 0, 0, 0, 0, 0, 0, 0, 0
+    02 00            #     dw 2                    ; e_type
+    03 00            #     dw 3                    ; e_machine
+    01 00 00 00      #     dd 1                    ; e_version
+    54 80 04 08      #     dd _start - $$ + origin ; e_entry
+    34 00 00 00      #     dd phdr - $$            ; e_phoff
+    00 00 00 00      #     dd 0                    ; e_shoff
+    00 00 00 00      #     dd 0                    ; e_flags
+    34 00            #     dw ehdrsize             ; e_ehsize
+    20 00            #     dw phdrsize             ; e_phentsize
+    01 00            #     dw 1                    ; e_phnum
+    00 00            #     dw 0                    ; e_shentsize
+    00 00            #     dw 0                    ; e_shnum
+    00 00            #     dw 0                    ; e_shstrndx
 
-# Enter here:
+# ehdrsize equ $ - ehdr
 
-# A stackless implementation of exit(42), for debugging:
-# 31 c0 40 b3 2a cd 80
+# phdr:                       ; Elf32_Phdr
+    01 00 00 00      #     dd 1                    ; p_type
+    00 00 00 00      #     dd 0                    ; p_offset
+    00 80 04 08      #     dd origin               ; p_vaddr
+    00 80 04 08      #     dd origin               ; p_paddr
+    bf 00 00 00      #     dd filesize             ; p_filesz
+    bf 00 00 00      #     dd filesize             ; p_memsz
+    05 00 00 00      #     dd 5                    ; p_flags
+    00 10 00 00      #     dd 0x1000               ; p_align
+
+# phdrsize equ $ - phdr
+
 
 # _start:
-	e8 25 00 00 00		# call	gethex
-	c1 e0 04		# sall	$4,%eax
-	50			# push	%eax
-	e8 1c 00 00 00		# call	gethex
-	01 04 24		# add	%eax,(%esp)
-	e8 03 00 00 00		# call	putchar
-	58			# pop	%eax
-	eb e7			# jmp	_start
+    e8 25 00 00 00   #     call gethex
+    c1 e0 04         #     shl eax,4
+    50               #     push eax
+    e8 1c 00 00 00   #     call gethex
+    01 04 24         #     add [esp],eax
+    e8 03 00 00 00   #     call putchar
+    58               #     pop eax
+    eb e7            #     jmp _start
 
-# +25
 # putchar:
-	31 db			# xor	%ebx,%ebx
-	43			# inc	%ebx
-	8d 4c 24 04		# lea	4(%esp),%ecx
-	89 da			# mov	%ebx,%edx
-	b8 04 00 00 00		# mov	$4,%eax
-	cd 80			# int	$0x80
-	c3			# ret
+    31 db            #     xor ebx,ebx
+    43               #     inc ebx
+    8d 4c 24 04      #     lea ecx,[esp+4]
+    89 da            #     mov edx,ebx
+    b8 04 00 00 00   #     mov eax,4
+    cd 80            #     int 0x80
+    c3               #     ret
 
-# +17
 # gethex:
-	e8 1f 00 00 00		# call	getchar
-	83 f8 23		# cmp	$35,%eax
-	75 0c			# jne	.convhex
-
-# +10
+    e8 1f 00 00 00   #     call getchar
+    83 f8 23         #     cmp eax,35
+    75 0c            #     jnz .convhex
 # .loop:
-	e8 15 00 00 00		# call	getchar
-	83 f8 0a		# cmp	$10,%eax
-	75 f6			# jne	.loop
-	eb ea			# jmp	gethex
-
-# +12
+    e8 15 00 00 00   #     call getchar
+    83 f8 0a         #     cmp eax,10
+    75 f6            #     jnz .loop
+    eb ea            #     jmp gethex
 # .convhex:
-	83 e8 30		# sub	$48,%eax
-	7c e5			# jl	gethex
-	83 f8 30		# cmp	$48,%eax
-	7c 03			# jl	.ret
-	83 e8 27		# sub	$39,%eax
+    83 e8 30         #     sub eax,48
+    7c e5            #     jl gethex
+    83 f8 30         #     cmp eax,48
+    7c 03            #     jl .ret
+    83 e8 27         #     sub eax,39
+# .ret:
+    c3               #     ret
 
-# +13
-# 1 byte
-	c3			# ret
-
-# +1
 # getchar:
-	6a 00			# push	$0
-	31 db			# xor	%ebx,%ebx
-	89 e1			# mov	%esp,%ecx
-	89 da			# mov	%ebx,%edx
-	42			# inc	%edx
-	b8 03 00 00 00		# mov	$3,%eax
-	cd 80			# int	$0x80
-	85 c0			# test	%eax,%eax
-	74 02			# je	exit ##
-	58			# pop	%eax
-	c3			# ret
+    6a 00            #     push 0
+    31 db            #     xor ebx,ebx
+    89 e1            #     mov ecx,esp
+    89 da            #     mov edx,ebx
+    42               #     inc edx
+    b8 03 00 00 00   #     mov eax,3
+    cd 80            #     int 0x80
+    85 c0            #     test eax,eax
+    74 02            #     jz exit
+    58               #     pop eax
+    c3               #     ret
 
-# +22
 # exit:
-	31 c0			# xor	%eax,%eax
-	89 c3			# mov	%eax,%ebx
-	40			# inc	%eax
-	cd 80			# int	$0x80
+    31 c0            #     xor eax,eax
+    89 c3            #     mov ebx,eax
+    40               #     inc eax
+    cd 80            #     int 0x80
 
-# +7
+# filesize equ $ - $$
