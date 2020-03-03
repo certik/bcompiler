@@ -3,6 +3,7 @@
 set -e
 
 nasm -f bin hex1.asm -o hex1.x
+diff hex1 hex1.x
 
 # List codes:
-nasm -f bin hex1.asm -l hex1.lst
+#nasm -f bin hex1.asm -l hex1.lst
