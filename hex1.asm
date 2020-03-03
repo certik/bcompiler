@@ -3,7 +3,7 @@ SECTION .TEXT
 
 _start:
     call gethex
-    shl eax,byte 0x4
+    shl eax,4
     push eax
     call gethex
     add [esp],eax
@@ -14,37 +14,37 @@ _start:
 putchar:
     xor ebx,ebx
     inc ebx
-    lea ecx,[esp+0x4]
+    lea ecx,[esp+4]
     mov edx,ebx
-    mov eax,0x4
+    mov eax,4
     int 0x80
     ret
 
 gethex:
     call getchar
-    cmp eax,byte +0x23
+    cmp eax,35
     jnz .convhex
 .loop:
     call getchar
-    cmp eax,byte +0xa
+    cmp eax,10
     jnz .loop
     jmp gethex
 .convhex:
-    sub eax,byte +0x30
+    sub eax,48
     jl gethex
-    cmp eax,byte +0x30
+    cmp eax,48
     jl .ret
-    sub eax,byte +0x27
+    sub eax,39
 .ret:
     ret
 
 getchar:
-    push byte +0x0
+    push 0
     xor ebx,ebx
     mov ecx,esp
     mov edx,ebx
     inc edx
-    mov eax,0x3
+    mov eax,3
     int 0x80
     test eax,eax
     jz exit
