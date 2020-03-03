@@ -1,6 +1,5 @@
   BITS 32
 
-                org     0x08048000
   origin        equ     0x08048000
 
   ehdr:                                                 ; Elf32_Ehdr
@@ -9,7 +8,7 @@
                 dw      2                               ;   e_type
                 dw      3                               ;   e_machine
                 dd      1                               ;   e_version
-                dd      _start                          ;   e_entry
+                dd      _start - $$ + origin            ;   e_entry
                 dd      phdr - $$                       ;   e_phoff
                 dd      0                               ;   e_shoff
                 dd      0                               ;   e_flags
