@@ -2,6 +2,11 @@
 
 set -e
 
+# Convert our first hexadecimal to binary if it does not exist
+if [ ! -e hex1 ]; then
+	sed 's/#.*//' hex1.he | xxd -r -ps > hex1 && chmod +x hex1
+fi
+
 # HEX1
 ./hex1 < hex1.he | diff - hex1
 
